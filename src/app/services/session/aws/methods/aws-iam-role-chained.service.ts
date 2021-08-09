@@ -14,7 +14,7 @@ import {AwsIamRoleFederatedService} from './aws-iam-role-federated.service';
 import {KeychainService} from '../../../keychain.service';
 import {AwsIamUserService} from './aws-iam-user.service';
 import {AwsSsoRoleService} from './aws-sso-role.service';
-import {DaemonService} from '../../../daemon.service';
+import {DaemonService} from '../../../../daemon/services/daemon.service';
 import {SessionService} from '../../../session.service';
 
 export interface AwsIamRoleChainedSessionRequest {

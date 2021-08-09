@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { DaemonService } from './daemon.service';
+import { DaemonService } from '../daemon/services/daemon.service';
 
 describe('DaemonService', () => {
   let service: DaemonService;

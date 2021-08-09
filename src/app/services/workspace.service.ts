@@ -146,6 +146,7 @@ export class WorkspaceService extends NativeService {
     const workspace = this.get();
     workspace.profiles.push(profile);
     this.persist(workspace);
+    // Add call to Backend to save profile
   }
 
   updateProfile(id: string, name: string) {

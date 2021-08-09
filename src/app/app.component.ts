@@ -13,11 +13,15 @@ import {UpdaterService} from './services/updater.service';
 import compareVersions from 'compare-versions';
 import {RetrocompatibilityService} from './services/retrocompatibility.service';
 import {LeappParseError} from './errors/leapp-parse-error';
-import {apiRoot, DaemonService, DaemonUrls, WSDaemonMessage} from './services/daemon.service';
 import {LeappBaseError} from './errors/leapp-base-error';
 import {Constants} from './models/constants';
 import {AwsIamUserService} from './services/session/aws/methods/aws-iam-user.service';
-import {LeappMissingMfaTokenError} from "./errors/leapp-missing-mfa-token-error";
+import {DaemonService, WSDaemonMessage} from './daemon/services/daemon.service';
+import {LeappMissingMfaTokenError} from './errors/leapp-missing-mfa-token-error';
+import {apiPort, apiRoot, DaemonUrls} from './daemon/routes';
+import {GetIamUserSessionRequestDto} from './daemon/dtos/get-iam-user-session-request-dto';
+import {ConfirmIamUserMfaCodeRequestDto} from './daemon/dtos/confirm-iam-user-mfa-code-request-dto';
+
 
 @Component({
   selector: 'app-root',
@@ -185,9 +189,9 @@ export class AppComponent implements OnInit {
   }
 
   private launchDaemonWebSocket() {
-    const webSocket = new WebSocket(`ws://localhost:8080${apiRoot}${DaemonUrls.openWebsocketConnection}`);
-    webSocket.onerror = (evt) => {};
-    webSocket.onclose = (evt) => {};
+    const webSocket = new WebSocket(`ws://localhost:${apiPort}${apiRoot}${DaemonUrls.openWebsocketConnection}`);
+    webSocket.onerror = (_) => {};
+    webSocket.onclose = (_) => {};
 
     webSocket.onmessage = async (evt) => {
       const data = JSON.parse(evt.data);
@@ -196,14 +200,14 @@ export class AppComponent implements OnInit {
         this.mfaSemaphore = true;
 
         const sessionId = JSON.parse(data.Data).SessionId;
-        const response = await this.daemonService.callDaemon(DaemonUrls.getIamUser, { id: sessionId }, 'GET');
+        const response = await this.daemonService.callDaemon(DaemonUrls.getIamUser, new GetIamUserSessionRequestDto(sessionId), 'GET');
         const sessionAlias = response.data.Name;
 
         this.app.inputDialog('Insert MFA Code', 'set code...', `Please add code for ${sessionAlias} session`, async (res) => {
 
           try {
             if (res !== Constants.confirmClosed) {
-              await this.daemonService.callDaemon(DaemonUrls.iamUserConfirmMfaCode, {id: sessionId, mfaToken: res}, 'POST');
+              await this.daemonService.callDaemon(DaemonUrls.iamUserConfirmMfaCode, new ConfirmIamUserMfaCodeRequestDto(sessionId, res), 'POST');
             } else {
               throw new LeappBaseError('Mfa Error', this, LoggerLevel.warn, 'Missing Mfa Code');
             }

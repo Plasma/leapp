@@ -11,7 +11,7 @@ import {AwsSsoRoleService} from './session/aws/methods/aws-sso-role.service';
 import {AzureService} from './session/azure/azure.service';
 import {ExecuteService} from './execute.service';
 import {SessionService} from './session.service';
-import {DaemonService} from './daemon.service';
+import {DaemonService} from '../daemon/services/daemon.service';
 
 @Injectable({
   providedIn: 'root'

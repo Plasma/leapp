@@ -3,23 +3,19 @@ import {CredentialsInfo} from '../../../../models/credentials-info';
 import {WorkspaceService} from '../../../workspace.service';
 import {AwsIamUserSession} from '../../../../models/aws-iam-user-session';
 import {KeychainService} from '../../../keychain.service';
-import {environment} from '../../../../../environments/environment';
 import {Session} from '../../../../models/session';
 import {AppService, LoggerLevel} from '../../../app.service';
-import AWS from 'aws-sdk';
-import {GetSessionTokenResponse} from 'aws-sdk/clients/sts';
 import {FileService} from '../../../file.service';
-import {Constants} from '../../../../models/constants';
-import {LeappAwsStsError} from '../../../../errors/leapp-aws-sts-error';
-import {LeappParseError} from '../../../../errors/leapp-parse-error';
-import {LeappMissingMfaTokenError} from '../../../../errors/leapp-missing-mfa-token-error';
-import {DaemonService, DaemonUrls} from '../../../daemon.service';
 import {LeappBaseError} from '../../../../errors/leapp-base-error';
-import {SessionService} from '../../../session.service';
-import {SessionType} from '../../../../models/session-type';
-import {AwsIamRoleChainedSession} from '../../../../models/aws-iam-role-chained-session';
 import {SessionStatus} from '../../../../models/session-status';
 import {AwsSessionService} from '../aws-session.service';
+import {DaemonService} from '../../../../daemon/services/daemon.service';
+import {IamUserCreateRequestDto} from '../../../../daemon/dtos/iam-user-create-request-dto';
+import {StartIamUserSessionRequestDto} from '../../../../daemon/dtos/start-iam-user-session-request-dto';
+import {StopIamUserSessionRequestDto} from '../../../../daemon/dtos/stop-iam-user-session-request-dto';
+import {DeleteIamUserRequestDto} from '../../../../daemon/dtos/delete-iam-user-request-dto';
+import {DaemonUrls} from '../../../../daemon/routes';
+import {IamUserEditRequestDto} from '../../../../daemon/dtos/iam-user-edit-request-dto';
 
 export interface AwsIamUserSessionRequest {
   accountName: string;
@@ -47,7 +43,7 @@ export class AwsIamUserService extends AwsSessionService {
     try {
       this.sessionLoading(sessionId);
 
-      await this.daemonService.callDaemon(DaemonUrls.startIamUserSession, { id: sessionId }, 'POST');
+      await this.daemonService.callDaemon(DaemonUrls.startIamUserSession, new StartIamUserSessionRequestDto(sessionId), 'POST');
 
       this.sessionActivate(sessionId);
     } catch (error) {
@@ -61,7 +57,7 @@ export class AwsIamUserService extends AwsSessionService {
 
   async stop(sessionId: string): Promise<void> {
     try {
-      await this.daemonService.callDaemon(DaemonUrls.stopIamUserSession, { id: sessionId }, 'POST');
+      await this.daemonService.callDaemon(DaemonUrls.stopIamUserSession, new StopIamUserSessionRequestDto(sessionId), 'POST');
 
       this.sessionDeactivated(sessionId);
       return;
@@ -71,14 +67,14 @@ export class AwsIamUserService extends AwsSessionService {
   }
 
   async create(accountRequest: AwsIamUserSessionRequest, profileId: string): Promise<void> {
-    const iamUserCreateDto = {
-      name: accountRequest.accountName,
-      region: accountRequest.region,
-      mfaDevice: accountRequest.mfaDevice,
-      awsNamedProfileName: profileId,
-      awsAccessKeyId: accountRequest.accessKey,
-      awsSecretAccessKey: accountRequest.secretKey
-    };
+    const iamUserCreateDto = new IamUserCreateRequestDto(
+      accountRequest.accountName,
+      accountRequest.region,
+      accountRequest.mfaDevice,
+      profileId,
+      accountRequest.accessKey,
+      accountRequest.secretKey
+    );
 
     try {
       const response = await this.daemonService.callDaemon(DaemonUrls.createIamUser, iamUserCreateDto, 'POST');
@@ -100,15 +96,15 @@ export class AwsIamUserService extends AwsSessionService {
 
     if(index > -1) {
       try {
-        const iamUserEditDto = {
-          id: sessionId,
-          name: (session as AwsIamUserSession).sessionName,
-          region: (session as AwsIamUserSession).region,
-          mfaDevice: (session as AwsIamUserSession).mfaDevice,
-          awsNamedProfileName: (session as AwsIamUserSession).profileId,
-          awsAccessKeyId: accessKey,
-          awsSecretAccessKey: secretKey
-        };
+        const iamUserEditDto = new IamUserEditRequestDto(
+          sessionId,
+          (session as AwsIamUserSession).sessionName,
+          (session as AwsIamUserSession).region,
+          (session as AwsIamUserSession).mfaDevice,
+          (session as AwsIamUserSession).profileId,
+          accessKey,
+          secretKey
+        );
 
         await this.daemonService.callDaemon(DaemonUrls.editIamUser, iamUserEditDto, 'PUT');
 
@@ -131,11 +127,11 @@ export class AwsIamUserService extends AwsSessionService {
           this.stop(sess.sessionId);
         }
 
-        this.daemonService.callDaemon(DaemonUrls.deleteIamUser, { id: sess.sessionId }, 'DELETE');
+        this.daemonService.callDaemon(DaemonUrls.deleteIamUser, new DeleteIamUserRequestDto(sess.sessionId), 'DELETE');
         this.workspaceService.removeSession(sess.sessionId);
       });
 
-      this.daemonService.callDaemon(DaemonUrls.deleteIamUser, { id: sessionId }, 'DELETE');
+      await this.daemonService.callDaemon(DaemonUrls.deleteIamUser, new DeleteIamUserRequestDto(sessionId), 'DELETE');
       this.workspaceService.removeSession(sessionId);
 
     } catch(error) {
