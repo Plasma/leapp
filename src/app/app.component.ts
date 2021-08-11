@@ -16,11 +16,13 @@ import {LeappParseError} from './errors/leapp-parse-error';
 import {LeappBaseError} from './errors/leapp-base-error';
 import {Constants} from './models/constants';
 import {AwsIamUserService} from './services/session/aws/methods/aws-iam-user.service';
-import {DaemonService, WSDaemonMessage} from './daemon/services/daemon.service';
+import {DaemonService} from './daemon/services/daemon.service';
 import {LeappMissingMfaTokenError} from './errors/leapp-missing-mfa-token-error';
 import {apiPort, apiRoot, DaemonUrls} from './daemon/routes';
 import {GetIamUserSessionRequestDto} from './daemon/dtos/get-iam-user-session-request-dto';
 import {ConfirmIamUserMfaCodeRequestDto} from './daemon/dtos/confirm-iam-user-mfa-code-request-dto';
+import {WebsocketService} from "./daemon/services/websocket.service";
+import {WsDaemonMessage} from "./daemon/ws-daemon-message";
 
 
 @Component({
@@ -29,7 +31,6 @@ import {ConfirmIamUserMfaCodeRequestDto} from './daemon/dtos/confirm-iam-user-mf
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  private mfaSemaphore = false;
 
   /* Main app file: launches the Angular framework inside Electron app */
   constructor(
@@ -43,7 +44,7 @@ export class AppComponent implements OnInit {
     private timerService: TimerService,
     private updaterService: UpdaterService,
     private daemonService: DaemonService,
-    private awsIamUserService: AwsIamUserService
+    private websocketService: WebsocketService
   ) {}
 
   async ngOnInit() {
@@ -100,11 +101,11 @@ export class AppComponent implements OnInit {
     // Launch Daemon
     this.daemonService.launchDaemon();
     // This set websocket
-    this.launchDaemonWebSocket();
+    this.websocketService.launchDaemonWebSocket();
 
     // Go to initial page if no sessions are already created or
     // go to the list page if is your second visit
-    if (workspace.sessions.length > 0) {
+    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
       this.router.navigate(['/sessions', 'session-selected']);
     } else {
       this.router.navigate(['/start', 'start-page']);
@@ -188,39 +189,5 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private launchDaemonWebSocket() {
-    const webSocket = new WebSocket(`ws://localhost:${apiPort}${apiRoot}${DaemonUrls.openWebsocketConnection}`);
-    webSocket.onerror = (_) => {};
-    webSocket.onclose = (_) => {};
 
-    webSocket.onmessage = async (evt) => {
-      const data = JSON.parse(evt.data);
-
-      if (data.MessageType === WSDaemonMessage.mfaTokenRequest && !this.mfaSemaphore) {
-        this.mfaSemaphore = true;
-
-        const sessionId = JSON.parse(data.Data).SessionId;
-        const response = await this.daemonService.callDaemon(DaemonUrls.getIamUser, new GetIamUserSessionRequestDto(sessionId), 'GET');
-        const sessionAlias = response.data.Name;
-
-        this.app.inputDialog('Insert MFA Code', 'set code...', `Please add code for ${sessionAlias} session`, async (res) => {
-
-          try {
-            if (res !== Constants.confirmClosed) {
-              await this.daemonService.callDaemon(DaemonUrls.iamUserConfirmMfaCode, new ConfirmIamUserMfaCodeRequestDto(sessionId, res), 'POST');
-            } else {
-              throw new LeappBaseError('Mfa Error', this, LoggerLevel.warn, 'Missing Mfa Code');
-            }
-          } catch(err) {
-            await this.awsIamUserService.stop(sessionId);
-            throw new LeappMissingMfaTokenError(this, err.message);
-          } finally {
-            this.mfaSemaphore = false;
-          }
-
-        });
-
-      }
-    };
-  }
 }

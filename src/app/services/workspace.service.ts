@@ -7,6 +7,11 @@ import {environment} from '../../environments/environment';
 import {deserialize, serialize} from 'class-transformer';
 import {NativeService} from './native-service';
 import {BehaviorSubject, Observable} from 'rxjs';
+import {SessionType} from "../models/session-type";
+import {DaemonService} from "../daemon/services/daemon.service";
+import {DaemonUrls} from "../daemon/routes";
+import {EmptyDto} from "../daemon/dtos/empty-dto";
+import {DaemonDataMapperService} from "../daemon/services/daemon-data-mapper.service";
 
 @Injectable({
   providedIn: 'root'
@@ -28,7 +33,12 @@ export class WorkspaceService extends NativeService {
   // Private singleton workspace
   private _workspace: Workspace;
 
-  constructor(private appService: AppService, private fileService: FileService) {
+  constructor(
+    private appService: AppService,
+    private fileService: FileService,
+    private daemonService: DaemonService,
+    private daemonDataMapperService: DaemonDataMapperService
+  ) {
     super();
 
     this._sessions = new BehaviorSubject<Session[]>([]);
@@ -36,7 +46,9 @@ export class WorkspaceService extends NativeService {
 
     this.create();
     // TODO: check if it is possible to call directly this._sessions.next(this.getPersistedSessions())
-    this.sessions = this.getPersistedSessions();
+    this.getPersistedSessions().then(sessions => {
+      this.sessions = sessions;
+    });
   }
 
   get workspace(): Workspace {
@@ -190,19 +202,25 @@ export class WorkspaceService extends NativeService {
     this.persist(workspace);
   }
 
+  async getPersistedSessions(): Promise<Session[]> {
+    const workspace = this.get();
+
+    // add daemon managed sessions
+    let awsIamUserSessions = await this.daemonService.callDaemon(DaemonUrls.listAwsIamUserSessions, new EmptyDto(), 'GET');
+    awsIamUserSessions = this.daemonDataMapperService.map(awsIamUserSessions.data, SessionType.awsIamUser);
+
+    // Concat with all others
+    return workspace.sessions.concat(awsIamUserSessions);
+  }
+
   private persist(workspace: Workspace) {
     const path = this.appService.getOS().homedir() + '/' + environment.lockFileDestination;
     this.fileService.writeFileSync(path, this.fileService.encryptText(serialize(workspace)));
   }
 
-  private getPersistedSessions(): Session[] {
-    const workspace = this.get();
-    return workspace.sessions;
-  }
-
   private updatePersistedSessions(sessions: Session[]): void {
     const workspace = this.get();
-    workspace.sessions = sessions;
+    workspace.sessions = sessions.filter(s => s.type !== SessionType.awsIamUser);
     this.persist(workspace);
   }
 }

@@ -10,10 +10,6 @@ import {NativeService} from '../../services/native-service';
 import {apiPort, apiRoot, DaemonUrls} from '../routes';
 import {DaemonDto} from '../dtos/daemon-dto';
 
-export enum WSDaemonMessage {
-  mfaTokenRequest
-}
-
 @Injectable({
   providedIn: 'root'
 })
@@ -35,11 +31,11 @@ export class DaemonService extends NativeService {
       daemonPath = `./src/assets/extraResources`;
     }
 
-    const daemonFile = daemonPath + '/leapp_daemon';
+    const daemonFile = daemonPath + '/leapp-daemon-windows.exe';
 
     try {
       if (this.fileService.exists(daemonFile)) {
-        const result = await this.executeService.executeAbsolute(`${daemonPath}/awesomeService '${daemonFile}'`);
+        const result = await this.executeService.executeAbsolute(`'${daemonFile}'`);
       }
     } catch(err) {
       throw new LeappBaseError('Daemon Error', this, LoggerLevel.warn, err);

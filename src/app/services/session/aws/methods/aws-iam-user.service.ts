@@ -41,11 +41,9 @@ export class AwsIamUserService extends AwsSessionService {
 
   async start(sessionId: string): Promise<void> {
     try {
-      this.sessionLoading(sessionId);
-
+      // this.sessionLoading(sessionId);
       await this.daemonService.callDaemon(DaemonUrls.startIamUserSession, new StartIamUserSessionRequestDto(sessionId), 'POST');
-
-      this.sessionActivate(sessionId);
+      // this.sessionActivate(sessionId);
     } catch (error) {
       this.sessionError(sessionId, error);
     }
@@ -59,7 +57,7 @@ export class AwsIamUserService extends AwsSessionService {
     try {
       await this.daemonService.callDaemon(DaemonUrls.stopIamUserSession, new StopIamUserSessionRequestDto(sessionId), 'POST');
 
-      this.sessionDeactivated(sessionId);
+      // this.sessionDeactivated(sessionId);
       return;
     } catch (error) {
       this.sessionError(sessionId, error);
