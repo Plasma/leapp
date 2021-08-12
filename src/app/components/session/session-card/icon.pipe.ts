@@ -1,4 +1,4 @@
-import { Pipe, PipeTransform } from '@angular/core';
+import {Pipe, PipeTransform} from '@angular/core';
 import {Session} from '../../../models/session';
 import {environment} from '../../../../environments/environment';
 import {SessionStatus} from '../../../models/session-status';
@@ -15,7 +15,8 @@ export class IconPipe implements PipeTransform {
     return new Promise((resolve, _) => {
       this.workspaceService.getProfileName((session as any).profileId).then(name => {
         const iconName = name === environment.defaultAwsProfileName ? 'home' : 'user';
-        resolve(session.status === SessionStatus.active ? `${iconName} orange` : iconName);
+        console.log(session.sessionName + ' ' + session.status);
+        resolve((session.status === SessionStatus.active || session.status === SessionStatus.pending) ? `${iconName} orange` : iconName);
       });
     });
   }
