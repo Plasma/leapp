@@ -30,7 +30,7 @@ export class IamUserCreateRequestDto extends DaemonDto {
       name: this.name,
       region: this.region,
       mfaDevice: this.mfaDevice,
-      awsNamedProfileName: this.awsNamedProfileId,
+      awsNamedProfileId: this.awsNamedProfileId,
       awsAccessKeyId: this.awsAccessKeyId,
       awsSecretAccessKey: this.awsSecretAccessKey
     };

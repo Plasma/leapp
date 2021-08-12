@@ -6,6 +6,11 @@ export enum DaemonUrls {
   openWebsocketConnection = `/websocket/register-client`, // GET
   iamUserConfirmMfaCode = `/aws/iam-user-sessions/:id/confirm-mfa-token`, // POST
 
+  listAwsNamedProfiles = `/aws/named-profiles`, // GET
+  createAwsNamedProfile = `/aws/named-profiles`, // POST
+  editAwsNamedProfile = `/aws/named-profiles/:id`, // PATCH
+  deleteAwsNamedProfile = `/aws/named-profiles/:id`, // DELETE
+
   createIamUser = `/aws/iam-user-sessions`, // POST
   listAwsIamUserSessions = `/aws/iam-user-sessions`, // GET
   getIamUser = `/aws/iam-user-sessions/:id`, // GET

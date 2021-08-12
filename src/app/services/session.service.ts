@@ -13,22 +13,22 @@ export abstract class SessionService extends NativeService {
     super();
   }
 
-  get(sessionId: string): Session {
+  async get(sessionId: string): Promise<Session> {
 
-    const sessionFiltered = this.list().find(session => session.sessionId === sessionId);
+    const sessionFiltered = (await this.list()).find(session => session.sessionId === sessionId);
     return sessionFiltered ? sessionFiltered : null;
   }
 
-  list(): Session[] {
-    return this.workspaceService.sessions;
+  async list(): Promise<Session[]> {
+    return await this.workspaceService.getPersistedSessions();
   }
 
-  listActive(): Session[] {
-    return (this.list().length > 0) ? this.list().filter( (session) => session.status === SessionStatus.active ) : [];
+  async listActive(): Promise<Session[]> {
+    return ((await this.list()).length > 0) ? (await this.list()).filter( (session) => session.status === SessionStatus.active ) : [];
   }
 
-  update(sessionId: string, session: Session) {
-    const sessions = this.list();
+  async update(sessionId: string, session: Session) {
+    const sessions = (await this.list());
     const index = sessions.findIndex(sess => sess.sessionId === sessionId);
     if(index > -1) {
       this.workspaceService.sessions[index] = session;

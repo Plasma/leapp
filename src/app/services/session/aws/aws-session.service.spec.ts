@@ -62,12 +62,12 @@ describe('AwsSessionService', () => {
   });
 
   describe('get()', () => {
-    it('should return a session given the id', () => {
+    it('should return a session given the id', async () => {
       const service: AwsSessionService = TestBed.inject(AwsSessionService);
-
-      expect(service.get('fakeid')).toBeInstanceOf(Session);
-      expect(service.get('fakeid').sessionId).toEqual('fakeid');
-      expect(service.get('fakeid').sessionName).toEqual('fakeaccount');
+      const result = await service.get('fakeid');
+      expect(result).toBeInstanceOf(Session);
+      expect(result.sessionId).toEqual('fakeid');
+      expect(result.sessionName).toEqual('fakeaccount');
     });
 
     it('should return null if session is not found given the id', () => {
@@ -78,28 +78,28 @@ describe('AwsSessionService', () => {
   });
 
   describe('list()', () => {
-    it('should return a session list retrieved from workspace', () => {
+    it('should return a session list retrieved from workspace', async () => {
       const service: AwsSessionService = TestBed.inject(AwsSessionService);
-
-      expect(service.list()).toBeInstanceOf(Array);
-      expect(service.list().length).toBeDefined();
+      const result = await service.list();
+      expect(result).toBeInstanceOf(Array);
+      expect(result.length).toBeDefined();
       expect(spyWorkspaceService.sessions).toEqual(mockedSessions);
     });
   });
 
   describe('listChildren()', () => {
-    it('should return a session list composed only of IAM Role Chained accounts', () => {
+    it('should return a session list composed only of IAM Role Chained accounts', async () => {
       const service: AwsSessionService = TestBed.inject(AwsSessionService);
 
-      expect(service.listIamRoleChained()).toBeInstanceOf(Array);
-      expect(service.listIamRoleChained().filter(c => c.type === SessionType.awsIamRoleChained)).toEqual([]);
+      expect((await service.listIamRoleChained())).toBeInstanceOf(Array);
+      expect((await service.listIamRoleChained()).filter(c => c.type === SessionType.awsIamRoleChained)).toEqual([]);
 
       const mockedSession2 = new AwsIamUserSession('fakeaccount2', 'eu-west-2', 'fakeprofile2');
       mockedSession2.type = SessionType.awsIamRoleChained;
       mockedSessions.push(mockedSession2);
 
-      expect(service.listIamRoleChained()).toBeInstanceOf(Array);
-      expect(service.listIamRoleChained().filter(c => c.type === SessionType.awsIamRoleChained)).toEqual([mockedSession2]);
+      expect(await service.listIamRoleChained()).toBeInstanceOf(Array);
+      expect((await service.listIamRoleChained()).filter(c => c.type === SessionType.awsIamRoleChained)).toEqual([mockedSession2]);
     });
 
     it('should call list() under the hood', () => {
@@ -112,18 +112,19 @@ describe('AwsSessionService', () => {
   });
 
   describe('listActive()', () => {
-    it('should return a session list of active sessins only', () => {
+    it('should return a session list of active sessins only', async () => {
       const service: AwsSessionService = TestBed.inject(AwsSessionService);
+      const result = await service.listActive();
 
-      expect(service.listActive()).toBeInstanceOf(Array);
-      expect(service.listActive().filter(c => c.status === SessionStatus.active)).toEqual([]);
+      expect(result).toBeInstanceOf(Array);
+      expect(result.filter(c => c.status === SessionStatus.active)).toEqual([]);
 
       const mockedSession2 = new AwsIamUserSession('fakeaccount2', 'eu-west-2', 'fakeprofile2');
       mockedSession2.status = SessionStatus.active;
       mockedSessions.push(mockedSession2);
 
-      expect(service.listActive()).toBeInstanceOf(Array);
-      expect(service.listActive().filter(c => c.status === SessionStatus.active)).toEqual([mockedSession2]);
+      expect(result).toBeInstanceOf(Array);
+      expect(result.filter(c => c.status === SessionStatus.active)).toEqual([mockedSession2]);
     });
 
     it('should call list() under the hood', () => {
@@ -277,15 +278,18 @@ describe('AwsSessionService', () => {
       const caller = setTimeout(() => {
         service.rotate('fakeid');
 
-        const caller2 = setTimeout(() => {
+        const caller2 = setTimeout(async () => {
           expect((service as any).sessionLoading).toHaveBeenCalled();
           expect((service as any).generateCredentials).toHaveBeenCalled();
           expect((service as any).applyCredentials).toHaveBeenCalled();
           expect((service as any).sessionRotated).toHaveBeenCalled();
 
           expect(mockedSession.status).toBe(SessionStatus.active);
-          expect(service.get('fakeid').startDateTime).not.toBe(previousStartDateTime);
-          expect(new Date(service.get('fakeid').startDateTime).getTime()).toBeGreaterThan(new Date(previousStartDateTime).getTime());
+
+          const result = await service.get('fakeid');
+
+          expect(result.startDateTime).not.toBe(previousStartDateTime);
+          expect(new Date(result.startDateTime).getTime()).toBeGreaterThan(new Date(previousStartDateTime).getTime());
 
           done();
           clearTimeout(caller);

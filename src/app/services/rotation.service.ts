@@ -12,12 +12,13 @@ export class RotationService {
     private sessionProviderService: SessionFactoryService) { }
 
   rotate(): void {
-    const activeSessions = this.sessionService.listActive();
-    activeSessions.forEach(session => {
-      if (session.expired()) {
-        const concreteSessionService = this.sessionProviderService.getService(session.type);
-        concreteSessionService.rotate(session.sessionId);
-      }
+    this.sessionService.listActive().then(activeSessions => {
+      activeSessions.forEach(session => {
+        if (session.expired()) {
+          const concreteSessionService = this.sessionProviderService.getService(session.type);
+          concreteSessionService.rotate(session.sessionId);
+        }
+      });
     });
   }
 }

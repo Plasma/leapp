@@ -48,12 +48,12 @@ export class TrayMenuComponent implements OnInit, OnDestroy {
     }
   }
 
-  generateMenu() {
+  async generateMenu() {
     const version = this.appService.getApp().getVersion();
 
     let voices = [];
-    const actives = this.sessionService.listActive();
-    const allSessions = actives.concat(this.sessionService.list().filter(session => session.status === SessionStatus.inactive).filter((_, index) => index < (10 - actives.length)));
+    const actives = await this.sessionService.listActive();
+    const allSessions = actives.concat((await this.sessionService.list()).filter(session => session.status === SessionStatus.inactive).filter((_, index) => index < (10 - actives.length)));
     allSessions.forEach((session: Session) => {
       let icon = '';
       let label = '';
@@ -174,7 +174,7 @@ export class TrayMenuComponent implements OnInit, OnDestroy {
     // We need the Try/Catch as we have a the possibility to call the method without sessions
     try {
       // Stop the sessions...
-      const activeSessions = this.sessionService.listActive();
+      const activeSessions = await this.sessionService.listActive();
       activeSessions.forEach(sess => {
         this.sessionService.stop(sess.sessionId);
       });

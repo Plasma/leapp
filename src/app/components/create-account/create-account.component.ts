@@ -7,11 +7,21 @@ import {WorkspaceService} from '../../services/workspace.service';
 import {SessionType} from '../../models/session-type';
 import {environment} from '../../../environments/environment';
 import * as uuid from 'uuid';
-import {AwsIamUserSessionRequest, AwsIamUserService} from '../../services/session/aws/methods/aws-iam-user.service';
-import {AwsIamRoleChainedSessionRequest, AwsIamRoleChainedService} from '../../services/session/aws/methods/aws-iam-role-chained.service';
+import {AwsIamUserService, AwsIamUserSessionRequest} from '../../services/session/aws/methods/aws-iam-user.service';
+import {
+  AwsIamRoleChainedService,
+  AwsIamRoleChainedSessionRequest
+} from '../../services/session/aws/methods/aws-iam-role-chained.service';
 import {LeappParseError} from '../../errors/leapp-parse-error';
-import {AwsIamRoleFederatedSessionRequest, AwsIamRoleFederatedService} from '../../services/session/aws/methods/aws-iam-role-federated.service';
+import {
+  AwsIamRoleFederatedService,
+  AwsIamRoleFederatedSessionRequest
+} from '../../services/session/aws/methods/aws-iam-role-federated.service';
 import {AzureService, AzureSessionRequest} from '../../services/session/azure/azure.service';
+import {DaemonService} from "../../daemon/services/daemon.service";
+import {DaemonUrls} from "../../daemon/routes";
+import {EmptyDto} from "../../daemon/dtos/empty-dto";
+import {AwsNamedProfileCreateRequestDto} from "../../daemon/dtos/aws-named-profile-create-request-dto";
 
 @Component({
   selector: 'app-create-account',
@@ -76,6 +86,7 @@ export class CreateAccountComponent implements OnInit {
     private appService: AppService,
     private router: Router,
     private activatedRoute: ActivatedRoute,
+    private daemonService: DaemonService,
     private workspaceService: WorkspaceService,
     private awsIamRoleFederatedService: AwsIamRoleFederatedService,
     private awsIamUserService: AwsIamUserService,
@@ -86,7 +97,7 @@ export class CreateAccountComponent implements OnInit {
 
   ngOnInit() {
 
-    this.activatedRoute.queryParams.subscribe(params => {
+    this.activatedRoute.queryParams.subscribe( async (params) => {
 
       // Get the workspace and the accounts you need
       const workspace = this.workspaceService.get();
@@ -101,19 +112,19 @@ export class CreateAccountComponent implements OnInit {
       }
 
       // We got all the applicable profiles
-      // Note: we don't use azure profile so we remove default azure profile from the list
-      workspace.profiles.forEach(idp => {
-          if (idp !== null && idp.name !== environment.defaultAzureProfileName) {
-            this.profiles.push({value: idp.id, label: idp.name});
-          }
+      const profiles = await this.workspaceService.getProfiles();
+      profiles.forEach(idp => {
+        if (idp !== null && idp.Name !== environment.defaultAzureProfileName) {
+          this.profiles.push({value: idp.Id, label: idp.Name});
+        }
       });
 
       // This way we also fix potential incongruences when you have half saved setup
-      this.hasOneGoodSession = workspace.sessions.length > 0;
+      this.hasOneGoodSession = (await this.workspaceService.getPersistedSessions()).length > 0;
       this.firstTime = params['firstTime'] || !this.hasOneGoodSession;
 
       // Show the assumable accounts
-      this.assumerAwsSessions = this.awsSessionService.listAssumable().map(session => ({
+      this.assumerAwsSessions = (await this.awsSessionService.listAssumable()).map(session => ({
           sessionName: session.sessionName,
           session
       }));
@@ -155,11 +166,11 @@ export class CreateAccountComponent implements OnInit {
   /**
    * Save the first account in the workspace
    */
-  saveSession() {
+  async saveSession() {
     this.appService.logger(`Saving account...`, LoggerLevel.info, this);
-    this.addProfileToWorkspace();
-    this.saveNewSsoRolesToWorkspace();
-    this.createSession();
+    await this.addProfileToWorkspace();
+    await this.saveNewSsoRolesToWorkspace();
+    await this.createSession();
     this.router.navigate(['/sessions', 'session-selected']);
   }
 
@@ -232,7 +243,10 @@ export class CreateAccountComponent implements OnInit {
    *
    * @private
    */
-  private createSession() {
+  private async createSession() {
+
+    const profileId = await this.workspaceService.getProfileId(this.selectedProfile.label);
+
     switch (this.sessionType) {
       case (SessionType.awsIamRoleFederated):
         const awsFederatedAccountRequest: AwsIamRoleFederatedSessionRequest = {
@@ -242,7 +256,7 @@ export class CreateAccountComponent implements OnInit {
           idpArn: this.form.value.idpArn.trim(),
           roleArn: this.form.value.roleArn.trim()
         };
-        this.awsIamRoleFederatedService.create(awsFederatedAccountRequest, this.selectedProfile.value);
+        this.awsIamRoleFederatedService.create(awsFederatedAccountRequest, profileId);
         break;
       case (SessionType.awsIamUser):
         const awsIamUserSessionRequest: AwsIamUserSessionRequest = {
@@ -252,7 +266,7 @@ export class CreateAccountComponent implements OnInit {
           secretKey: this.form.value.secretKey.trim(),
           mfaDevice: this.form.value.mfaDevice.trim()
         };
-        this.awsIamUserService.create(awsIamUserSessionRequest, this.selectedProfile.value);
+        this.awsIamUserService.create(awsIamUserSessionRequest, profileId);
         break;
       case (SessionType.awsIamRoleChained):
         const awsIamRoleChainedAccountRequest: AwsIamRoleChainedSessionRequest = {
@@ -261,7 +275,7 @@ export class CreateAccountComponent implements OnInit {
           roleArn: this.form.value.roleArn.trim(),
           parentSessionId: this.selectedSession.sessionId
         };
-        this.awsIamRoleChainedService.create(awsIamRoleChainedAccountRequest, this.selectedProfile.value);
+        this.awsIamRoleChainedService.create(awsIamRoleChainedAccountRequest, profileId);
         break;
       case (SessionType.azure):
         const azureSessionRequest: AzureSessionRequest = {
@@ -298,14 +312,10 @@ export class CreateAccountComponent implements OnInit {
    *
    * @private
    */
-  private addProfileToWorkspace() {
-    try {
+  private async addProfileToWorkspace() {
       const profile = { id: this.selectedProfile.value, name: this.selectedProfile.label };
-      if(!this.workspaceService.getProfileName(profile.id)) {
-        this.workspaceService.addProfile(profile);
+      if(! await this.workspaceService.getProfileName(profile.id)) {
+        this.workspaceService.addProfile(profile.name);
       }
-    } catch(err) {
-      throw new LeappParseError(this, err.message);
-    }
   }
 }

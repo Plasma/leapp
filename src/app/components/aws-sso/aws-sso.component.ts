@@ -37,11 +37,13 @@ export class AwsSsoComponent implements OnInit {
     });
   }
 
-  login() {
+  async login() {
     if (this.form.valid) {
+      const defaultId = await this.workspaceService.getDefaultProfileId();
+
       this.awsSsoRoleService.sync(this.selectedRegion, this.form.value.portalUrl).then((ssoRoleSessions: SsoRoleSession[]) => {
         ssoRoleSessions.forEach(ssoRoleSession => {
-          this.awsSsoRoleService.create(ssoRoleSession, this.workspaceService.getDefaultProfileId());
+          this.awsSsoRoleService.create(ssoRoleSession, defaultId);
         });
         this.router.navigate(['/sessions', 'session-selected']);
       });

@@ -31,7 +31,7 @@ export class DaemonService extends NativeService {
       daemonPath = `./src/assets/extraResources`;
     }
 
-    const daemonFile = daemonPath + '/leapp-daemon-windows.exe';
+    const daemonFile = daemonPath + '/leapp-daemon';
 
     try {
       if (this.fileService.exists(daemonFile)) {

@@ -130,10 +130,10 @@ describe('WorkspaceService', () => {
   });
 
   describe('getProfileName()', () => {
-    it('should return a profile name when an id matches', () => {
+    it('should return a profile name when an id matches', async () => {
       workspace = new Workspace();
       spyFileService.readFileSync.and.callFake((_: string) => serialize(workspace));
-      expect(workspaceService.getProfileName(workspaceService.get().profiles[0].id)).toEqual('default');
+      expect(await workspaceService.getProfileName(workspaceService.get().profiles[0].id)).toEqual('default');
     });
 
     it('should return null  when an id NOT matches', () => {

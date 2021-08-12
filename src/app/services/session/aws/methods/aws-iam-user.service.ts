@@ -89,7 +89,7 @@ export class AwsIamUserService extends AwsSessionService {
   }
 
   async update(sessionId: string, session: Session, accessKey?: string, secretKey?: string) {
-    const sessions = this.list();
+    const sessions = await this.list();
     const index = sessions.findIndex(sess => sess.sessionId === sessionId);
 
     if(index > -1) {
@@ -117,10 +117,10 @@ export class AwsIamUserService extends AwsSessionService {
 
   async delete(sessionId: string): Promise<void> {
     try {
-      if (this.get(sessionId).status === SessionStatus.active) {
+      if ((await this.get(sessionId)).status === SessionStatus.active) {
         await this.stop(sessionId);
       }
-      this.listIamRoleChained(this.get(sessionId)).forEach(sess => {
+      (await this.listIamRoleChained(await this.get(sessionId))).forEach(sess => {
         if (sess.status === SessionStatus.active) {
           this.stop(sess.sessionId);
         }

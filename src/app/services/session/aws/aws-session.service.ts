@@ -18,20 +18,20 @@ export abstract class AwsSessionService extends SessionService {
   }
 
   // TODO: are they assumable (maybe assumer) or generic AWS sessions?
-  listAssumable(): Session[] {
-    return (this.list().length > 0) ? this.list().filter( (session) => session.type !== SessionType.azure ) : [];
+  async listAssumable(): Promise<Session[]> {
+    return ((await this.list()).length > 0) ? (await this.list()).filter( (session) => session.type !== SessionType.azure ) : [];
   }
 
-  listIamRoleChained(parentSession?: Session): Session[] {
-    let childSession = (this.list().length > 0) ? this.list().filter( (session) => session.type === SessionType.awsIamRoleChained ) : [];
+  async listIamRoleChained(parentSession?: Session): Promise<Session[]> {
+    let childSession = ((await this.list()).length > 0) ? (await this.list()).filter( (session) => session.type === SessionType.awsIamRoleChained ) : [];
     if (parentSession) {
       childSession = childSession.filter(session => (session as AwsIamRoleChainedSession).parentSessionId === parentSession.sessionId );
     }
     return childSession;
   }
 
-  listAwsSsoRoles() {
-    return (this.list().length > 0) ? this.list().filter((session) => session.type === SessionType.awsSsoRole) : [];
+  async listAwsSsoRoles() {
+    return ((await this.list()).length > 0) ? (await this.list()).filter((session) => session.type === SessionType.awsSsoRole) : [];
   }
 
   async start(sessionId: string): Promise<void> {
@@ -68,10 +68,10 @@ export abstract class AwsSessionService extends SessionService {
 
   async delete(sessionId: string): Promise<void> {
     try {
-      if (this.get(sessionId).status === SessionStatus.active) {
+      if ((await this.get(sessionId)).status === SessionStatus.active) {
         await this.stop(sessionId);
       }
-      this.listIamRoleChained(this.get(sessionId)).forEach(sess => {
+      (await this.listIamRoleChained(await this.get(sessionId))).forEach(sess => {
         if (sess.status === SessionStatus.active) {
           this.stop(sess.sessionId);
         }
@@ -83,12 +83,12 @@ export abstract class AwsSessionService extends SessionService {
     }
   }
 
-  private stopAllWithSameNameProfile(sessionId: string) {
+  private async stopAllWithSameNameProfile(sessionId: string) {
     // Get profile to check
     const session = this.get(sessionId);
     const profileId = (session as any).profileId;
     // Get all active sessions
-    const activeSessions = this.listActive();
+    const activeSessions = await this.listActive();
     // Stop all that shares the same profile
     activeSessions.forEach(sess => {
       if( (sess as any).profileId === profileId ) {

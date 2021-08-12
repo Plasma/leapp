@@ -13,6 +13,8 @@ import { FilteringPipe } from './session/filtering.pipe';
 import { OrderingPipe } from './session/ordering.pipe';
 import {DetailPipe} from './session-card/detail.pipe';
 import {QueryingPipe} from './session/querying.pipe';
+import { IconPipe } from './session-card/icon.pipe';
+import { ProfilePipe } from './session-card/profile.pipe';
 
 @NgModule({
   declarations: [
@@ -21,7 +23,9 @@ import {QueryingPipe} from './session/querying.pipe';
     FilteringPipe,
     OrderingPipe,
     QueryingPipe,
-    DetailPipe
+    DetailPipe,
+    IconPipe,
+    ProfilePipe
   ],
   imports: [
     CommonModule,

@@ -58,8 +58,8 @@ export class AwsIamRoleChainedService extends AwsSessionService {
   }
 
   async applyCredentials(sessionId: string, credentialsInfo: CredentialsInfo): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsIamRoleChainedSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsIamRoleChainedSession).profileId);
     const credentialObject = {};
     credentialObject[profileName] = {
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -74,8 +74,8 @@ export class AwsIamRoleChainedService extends AwsSessionService {
   }
 
   async deApplyCredentials(sessionId: string): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsIamRoleChainedSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsIamRoleChainedSession).profileId);
     const credentialsFile = await this.fileService.iniParseSync(this.appService.awsCredentialPath());
     delete credentialsFile[profileName];
     return await this.fileService.replaceWriteSync(this.appService.awsCredentialPath(), credentialsFile);
@@ -83,12 +83,12 @@ export class AwsIamRoleChainedService extends AwsSessionService {
 
   async generateCredentials(sessionId: string): Promise<CredentialsInfo> {
     // Retrieve Session
-    const session = this.get(sessionId);
+    const session = await this.get(sessionId);
 
     // Retrieve Parent Session
-    let parentSession: Session;
+    let parentSession;
     try {
-      parentSession = this.get((session as AwsIamRoleChainedSession).parentSessionId);
+      parentSession = await this.get((session as AwsIamRoleChainedSession).parentSessionId);
     } catch (err) {
       throw new LeappNotFoundError(this, `Parent Account Session  not found for Chained Account ${session.sessionName}`);
     }

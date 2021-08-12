@@ -69,8 +69,8 @@ export class AwsIamRoleFederatedService extends AwsSessionService {
   }
 
   async applyCredentials(sessionId: string, credentialsInfo: CredentialsInfo): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsIamRoleFederatedSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsIamRoleFederatedSession).profileId);
     const credentialObject = {};
     credentialObject[profileName] = {
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -85,8 +85,8 @@ export class AwsIamRoleFederatedService extends AwsSessionService {
   }
 
   async deApplyCredentials(sessionId: string): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsIamRoleFederatedSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsIamRoleFederatedSession).profileId);
     const credentialsFile = await this.fileService.iniParseSync(this.appService.awsCredentialPath());
     delete credentialsFile[profileName];
     return await this.fileService.replaceWriteSync(this.appService.awsCredentialPath(), credentialsFile);
@@ -94,7 +94,7 @@ export class AwsIamRoleFederatedService extends AwsSessionService {
 
   async generateCredentials(sessionId: string): Promise<CredentialsInfo> {
     // Get the session in question
-    const session = this.get(sessionId);
+    const session = await this.get(sessionId);
 
     // Get idpUrl
     const idpUrl = this.workspaceService.getIdpUrl((session as AwsIamRoleFederatedSession).idpUrlId);

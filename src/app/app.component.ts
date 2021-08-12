@@ -85,8 +85,8 @@ export class AppComponent implements OnInit {
     this.showCredentialBackupMessageIfNeeded(workspace);
 
     // All sessions start stopped when app is launched
-    if (workspace.sessions.length > 0) {
-      workspace.sessions.forEach(sess => {
+    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
+      (await this.workspaceService.getPersistedSessions()).forEach(sess => {
         const concreteSessionService = this.sessionProviderService.getService(sess.type);
         concreteSessionService.stop(sess.sessionId);
       });

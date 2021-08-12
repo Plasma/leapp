@@ -122,8 +122,8 @@ export class AwsSsoRoleService extends AwsSessionService {
   }
 
   async applyCredentials(sessionId: string, credentialsInfo: CredentialsInfo): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsSsoRoleSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsSsoRoleSession).profileId);
     const credentialObject = {};
     credentialObject[profileName] = {
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -138,15 +138,15 @@ export class AwsSsoRoleService extends AwsSessionService {
   }
 
   async deApplyCredentials(sessionId: string): Promise<void> {
-    const session = this.get(sessionId);
-    const profileName = this.workspaceService.getProfileName((session as AwsSsoRoleSession).profileId);
+    const session = await this.get(sessionId);
+    const profileName = await this.workspaceService.getProfileName((session as AwsSsoRoleSession).profileId);
     const credentialsFile = await this.fileService.iniParseSync(this.appService.awsCredentialPath());
     delete credentialsFile[profileName];
     return await this.fileService.replaceWriteSync(this.appService.awsCredentialPath(), credentialsFile);
   }
 
   async generateCredentials(sessionId: string): Promise<CredentialsInfo> {
-    const roleArn = (this.get(sessionId) as AwsSsoRoleSession).roleArn;
+    const roleArn = (await this.get(sessionId) as AwsSsoRoleSession).roleArn;
     const region = this.workspaceService.getAwsSsoConfiguration().region;
     const portalUrl = this.workspaceService.getAwsSsoConfiguration().portalUrl;
     const accessToken = await this.getAccessToken(region, portalUrl);
@@ -282,6 +282,8 @@ export class AwsSsoRoleService extends AwsSessionService {
 
     const awsSsoSessions: SsoRoleSession[] = [];
 
+    const defaultId = await this.workspaceService.getDefaultProfileId();
+
     accountRoles.forEach((accountRole) => {
       const oldSession = this.findOldSession(accountInfo, accountRole);
 
@@ -290,7 +292,7 @@ export class AwsSsoRoleService extends AwsSessionService {
         region: oldSession?.region || this.workspaceService.get().defaultRegion || environment.defaultRegion,
         roleArn: `arn:aws:iam::${accountInfo.accountId}/${accountRole.roleName}`,
         sessionName: accountInfo.accountName,
-        profileId: oldSession?.profileId || this.workspaceService.getDefaultProfileId()
+        profileId: oldSession?.profileId || defaultId
       };
       awsSsoSessions.push(awsSsoSession);
     });
@@ -335,17 +337,18 @@ export class AwsSsoRoleService extends AwsSessionService {
     });
   }
 
-  private removeSsoSessionsFromWorkspace(): void {
-    const sessions = this.listAwsSsoRoles();
+  private async removeSsoSessionsFromWorkspace(): Promise<void> {
+    const sessions = await this.listAwsSsoRoles();
     sessions.forEach(sess => {
       // Verify and delete eventual iamRoleChained sessions from old Sso session
-      const iamRoleChainedSessions = this.listIamRoleChained(sess);
-      iamRoleChainedSessions.forEach(session => {
-        this.delete(session.sessionId);
-      });
+      this.listIamRoleChained(sess).then(iamRoleChainedSessions => {
+        iamRoleChainedSessions.forEach(session => {
+          this.delete(session.sessionId);
+        });
 
-      // Now we can safely remove
-      this.workspaceService.removeSession(sess.sessionId);
+        // Now we can safely remove
+        this.workspaceService.removeSession(sess.sessionId);
+      });
     });
   }
 

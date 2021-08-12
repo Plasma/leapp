@@ -12,6 +12,9 @@ import {DaemonService} from "../daemon/services/daemon.service";
 import {DaemonUrls} from "../daemon/routes";
 import {EmptyDto} from "../daemon/dtos/empty-dto";
 import {DaemonDataMapperService} from "../daemon/services/daemon-data-mapper.service";
+import {AwsNamedProfileCreateRequestDto} from "../daemon/dtos/aws-named-profile-create-request-dto";
+import {AwsNamedProfileEditRequestDto} from "../daemon/dtos/aws-named-profile-edit-request-dto";
+import {AwsNamedProfileDeleteRequestDto} from "../daemon/dtos/aws-named-profile-delete-request-dto";
 
 @Injectable({
   providedIn: 'root'
@@ -142,40 +145,46 @@ export class WorkspaceService extends NativeService {
     this.persist(workspace);
   }
 
-  getProfileName(profileId): string {
-    const workspace = this.get();
-    const profileFiltered = workspace.profiles.find(profile => profile.id === profileId);
-    return profileFiltered ? profileFiltered.name : null;
+  async getProfiles(): Promise<any[]> {
+    return (await this.daemonService.callDaemon(DaemonUrls.listAwsNamedProfiles, new EmptyDto(), 'GET')).data;
   }
 
-  getDefaultProfileId(): string {
-    const workspace = this.get();
-    const profileFiltered = workspace.profiles.find(profile => profile.name === 'default');
+  async getProfileName(profileId): Promise<string> {
+    const profiles = await this.getProfiles();
+    const profileFiltered = profiles.find(profile => profile.Id === profileId);
+    return profileFiltered ? profileFiltered.Name : null;
+  }
+
+  async getProfileId(name: string): Promise<string> {
+    const profiles = await this.getProfiles();
+    const profileFiltered = profiles.find(profile => profile.Name === name);
+    return profileFiltered ? profileFiltered.Id : null;
+  }
+
+  async getDefaultProfileId(): Promise<string> {
+    const profiles = await this.getProfiles();
+    const profileFiltered = profiles.find(profile => profile.Name === 'default');
     return profileFiltered.id;
   }
 
-  addProfile(profile: { id: string; name: string }): void {
-    const workspace = this.get();
-    workspace.profiles.push(profile);
-    this.persist(workspace);
-    // Add call to Backend to save profile
+  addProfile(name: string): void {
+    this.daemonService.callDaemon(DaemonUrls.createAwsNamedProfile, new AwsNamedProfileCreateRequestDto(name), 'POST');
   }
 
-  updateProfile(id: string, name: string) {
-    const workspace = this.get();
-    const profileIndex = workspace.profiles.findIndex(p => p.id === id);
+  async updateProfile(id: string, name: string) {
+    const profiles = await this.getProfiles();
+    const profileIndex = profiles.findIndex(p => p.Id === id);
     if(profileIndex > -1) {
-      workspace.profiles[profileIndex].name = name;
-      this.persist(workspace);
+      this.daemonService.callDaemon(DaemonUrls.editAwsNamedProfile, new AwsNamedProfileEditRequestDto(id, name), 'PATCH');
     }
   }
 
-  removeProfile(id: string) {
-    const workspace = this.get();
-    const profileIndex = workspace.profiles.findIndex(p => p.id === id);
-    workspace.profiles.splice(profileIndex, 1);
-
-    this.persist(workspace);
+  async removeProfile(id: string) {
+    const profiles = await this.getProfiles();
+    const profileIndex = profiles.findIndex(p => p.id === id);
+    if(profileIndex > -1) {
+      this.daemonService.callDaemon(DaemonUrls.deleteAwsNamedProfile, new AwsNamedProfileDeleteRequestDto(id), 'DELETE');
+    }
   }
 
   configureAwsSso(region: string, portalUrl: string, expirationTime: string): void {
@@ -223,4 +232,6 @@ export class WorkspaceService extends NativeService {
     workspace.sessions = sessions.filter(s => s.type !== SessionType.awsIamUser);
     this.persist(workspace);
   }
+
+
 }

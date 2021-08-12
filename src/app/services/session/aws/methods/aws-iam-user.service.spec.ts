@@ -101,7 +101,7 @@ describe('AwsIamUserService', () => {
       mockedSessions = [];
       awsIamUserService.create({accountName: 'fakeaccount', region: 'eu-west-1', accessKey: 'access-key', secretKey: 'secret-key'}, 'default');
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
 
       const credentialsInfo = {
         sessionToken: {
@@ -141,7 +141,7 @@ describe('AwsIamUserService', () => {
       mockedSessions = [];
       awsIamUserService.create({accountName: 'fakeaccount', region: 'eu-west-1', accessKey: 'access-key', secretKey: 'secret-key'}, 'default');
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
 
       const credentialsInfo = {
         sessionToken: {
@@ -204,7 +204,7 @@ describe('AwsIamUserService', () => {
       awsIamUserService.create({accountName: 'fakeaccount', region: 'eu-west-1', accessKey: 'access-key', secretKey: 'secret-key'}, 'default');
       (mockedSessions[0] as AwsIamUserSession).sessionTokenExpiration = new Date(Date.now() - environment.sessionTokenDuration - 1000).toISOString();
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
       spyOn(awsIamUserService, 'generateCredentials').and.callThrough();
       spyOn<any>(awsIamUserService, 'saveSessionTokenResponseInTheSession').and.callFake(() => true);
 
@@ -246,7 +246,7 @@ describe('AwsIamUserService', () => {
       (mockedSessions[0] as AwsIamUserSession).mfaDevice = 'fake-device-arn';
       (mockedSessions[0] as AwsIamUserSession).sessionTokenExpiration = new Date(Date.now() - 10000).toISOString();
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
       spyOn(awsIamUserService, 'generateCredentials').and.callThrough();
       spyOn<any>(awsIamUserService, 'generateSessionToken').and.callFake(() => true);
 
@@ -283,7 +283,7 @@ describe('AwsIamUserService', () => {
       // Fake date in the future to prevent token expiration
       (mockedSessions[0] as AwsIamUserSession).sessionTokenExpiration = new Date(Date.now() + 1000).toISOString();
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
       spyOn(awsIamUserService, 'generateCredentials').and.callThrough();
 
       // We need to spy on iniParseFile
@@ -320,7 +320,7 @@ describe('AwsIamUserService', () => {
       mockedSessions = [];
       awsIamUserService.create({accountName: 'fakeaccount', region: 'eu-west-1', accessKey: 'access-key', secretKey: 'secret-key'}, 'default');
 
-      spyOn(awsIamUserService, 'get').and.callFake((_: string) => mockedSessions[0]);
+      spyOn(awsIamUserService, 'get').and.callFake(async (_: string) => mockedSessions[0]);
       spyOn(awsIamUserService, 'generateCredentials').and.callThrough();
 
       // Trick to test throwing error: basically we catch the error and confront it instead of checking throwError

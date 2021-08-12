@@ -214,7 +214,7 @@ export class ProfilePageComponent implements OnInit {
     const profileIndex = this.workspaceService.get().profiles.findIndex(p => p.id === id.toString());
     if (this.form.get('awsProfile').value !== '') {
       if (profileIndex === -1) {
-        this.workspaceService.addProfile({ id: uuid.v4(), name: this.form.get('awsProfile').value });
+        this.workspaceService.addProfile(this.form.get('awsProfile').value);
       } else {
         this.workspaceService.updateProfile(id.toString(), this.form.get('awsProfile').value);
 
@@ -244,9 +244,9 @@ export class ProfilePageComponent implements OnInit {
     this.editingAwsProfile = true;
   }
 
-  deleteAwsProfile(id: string) {
+  async deleteAwsProfile(id: string) {
     // With profile
-    const sessions = this.awsSessionService.list().filter(sess => (sess as any).profileId === id);
+    const sessions = (await this.awsSessionService.list()).filter(sess => (sess as any).profileId === id);
 
     // Get only names for display
     let sessionsNames = sessions.map(s => `<li><div class="removed-sessions"><b>${s.sessionName}</b> - <small>${(s as AwsIamRoleFederatedSession).roleArn ? (s as AwsIamRoleFederatedSession).roleArn.split('/')[1] : ''}</small></div></li>`);

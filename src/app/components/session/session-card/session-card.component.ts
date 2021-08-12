@@ -123,10 +123,10 @@ export class SessionCardComponent implements OnInit {
    * @param session - the session to remove
    * @param event - for stopping propagation bubbles
    */
-  deleteSession(session, event) {
+  async deleteSession(session, event) {
     event.stopPropagation();
 
-    const dialogMessage = this.generateDeleteDialogMessage(session);
+    const dialogMessage = await this.generateDeleteDialogMessage(session);
 
     this.appService.confirmDialog(dialogMessage, (status) => {
       if (status === Constants.confirmed) {
@@ -298,11 +298,6 @@ export class SessionCardComponent implements OnInit {
     }
   }
 
-  getProfileName(profileId: string): string {
-    const profileName = this.workspaceService.getProfileName(profileId);
-    return profileName ? profileName : environment.defaultAwsProfileName;
-  }
-
   async changeProfile() {
     if (this.selectedProfile) {
       let wasActive = false;
@@ -337,10 +332,7 @@ export class SessionCardComponent implements OnInit {
     this.modalRef.hide();
   }
 
-  getIcon(session: Session) {
-    const iconName = this.getProfileName(this.getProfileId(session)) === environment.defaultAwsProfileName ? 'home' : 'user';
-    return session.status === SessionStatus.active ? `${iconName} orange` : iconName;
-  }
+
 
   private logSessionData(session: Session, message: string): void {
     this.appService.logger(
@@ -355,10 +347,10 @@ export class SessionCardComponent implements OnInit {
       }, null, 3));
   }
 
-  private generateDeleteDialogMessage(session: Session): string {
+  private async generateDeleteDialogMessage(session: Session): Promise<string> {
     let iamRoleChainedSessions = [];
     if (session.type !== SessionType.azure) {
-      iamRoleChainedSessions = (this.sessionService as AwsSessionService).listIamRoleChained(session);
+      iamRoleChainedSessions = await (this.sessionService as AwsSessionService).listIamRoleChained(session);
     }
 
     let iamRoleChainedSessionString = '';
