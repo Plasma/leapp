@@ -94,6 +94,9 @@ export abstract class AwsSessionService extends SessionService {
     // Stop all that shares the same profile
     activeSessions.forEach(sess => {
       if( (sess as any).profileId === profileId ) {
+        // Note: we changed stop with deactivated to accomodate the fact that now we extends this class also by the aws iam user service
+        // which calls the daemon with stop: that means that if we were to check against same profile and call stop being in that instance
+        // of Aws Session Service we would have called the daemon with a session not existing in the backend configuration leading to an error.
         this.sessionDeactivated(sess.sessionId);
       }
     });
