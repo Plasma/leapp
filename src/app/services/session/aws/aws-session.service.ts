@@ -83,16 +83,18 @@ export abstract class AwsSessionService extends SessionService {
     }
   }
 
-  private async stopAllWithSameNameProfile(sessionId: string) {
+  async stopAllWithSameNameProfile(sessionId: string) {
     // Get profile to check
-    const session = this.get(sessionId);
+    const session = await this.get(sessionId);
     const profileId = (session as any).profileId;
+
     // Get all active sessions
     const activeSessions = await this.listActive();
+
     // Stop all that shares the same profile
     activeSessions.forEach(sess => {
       if( (sess as any).profileId === profileId ) {
-        this.stop(sess.sessionId);
+        this.sessionDeactivated(sess.sessionId);
       }
     });
   }
