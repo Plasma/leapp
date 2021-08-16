@@ -13,16 +13,8 @@ import {UpdaterService} from './services/updater.service';
 import compareVersions from 'compare-versions';
 import {RetrocompatibilityService} from './services/retrocompatibility.service';
 import {LeappParseError} from './errors/leapp-parse-error';
-import {LeappBaseError} from './errors/leapp-base-error';
-import {Constants} from './models/constants';
-import {AwsIamUserService} from './services/session/aws/methods/aws-iam-user.service';
 import {DaemonService} from './daemon/services/daemon.service';
-import {LeappMissingMfaTokenError} from './errors/leapp-missing-mfa-token-error';
-import {apiPort, apiRoot, DaemonUrls} from './daemon/routes';
-import {GetIamUserSessionRequestDto} from './daemon/dtos/get-iam-user-session-request-dto';
-import {ConfirmIamUserMfaCodeRequestDto} from './daemon/dtos/confirm-iam-user-mfa-code-request-dto';
-import {WebsocketService} from "./daemon/services/websocket.service";
-import {WsDaemonMessage} from "./daemon/ws-daemon-message";
+import {WebsocketService} from './daemon/services/websocket.service';
 
 
 @Component({
@@ -31,6 +23,8 @@ import {WsDaemonMessage} from "./daemon/ws-daemon-message";
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+
+  globalError = '';
 
   /* Main app file: launches the Angular framework inside Electron app */
   constructor(
@@ -78,6 +72,7 @@ export class AppComponent implements OnInit {
     try {
       workspace = this.workspaceService.get();
     } catch {
+      this.globalError = 'We had trouble parsing your Leapp-lock.json file. It is either corrupt, obsolete, or with an error.';
       throw new LeappParseError(this, 'We had trouble parsing your Leapp-lock.json file. It is either corrupt, obsolete, or with an error.');
     }
 
@@ -85,12 +80,18 @@ export class AppComponent implements OnInit {
     this.showCredentialBackupMessageIfNeeded(workspace);
 
     // All sessions start stopped when app is launched
-    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
-      (await this.workspaceService.getPersistedSessions()).forEach(sess => {
-        const concreteSessionService = this.sessionProviderService.getService(sess.type);
-        concreteSessionService.stop(sess.sessionId);
-      });
+    try {
+      if ((await this.workspaceService.getPersistedSessions()).length > 0) {
+        (await this.workspaceService.getPersistedSessions()).forEach(sess => {
+          const concreteSessionService = this.sessionProviderService.getService(sess.type);
+          concreteSessionService.stop(sess.sessionId);
+        });
+      }
+    } catch (err) {
+      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
+      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
     }
+
 
     // Start Global Timer (1s)
     this.timerService.start(this.rotationService.rotate.bind(this.rotationService));
@@ -98,17 +99,27 @@ export class AppComponent implements OnInit {
     // Launch Auto Updater Routines
     this.manageAutoUpdate();
 
-    // Launch Daemon
-    this.daemonService.launchDaemon();
-    // This set websocket
-    this.websocketService.launchDaemonWebSocket();
-
     // Go to initial page if no sessions are already created or
     // go to the list page if is your second visit
-    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
-      this.router.navigate(['/sessions', 'session-selected']);
-    } else {
-      this.router.navigate(['/start', 'start-page']);
+    try {
+      if ((await this.workspaceService.getPersistedSessions()).length > 0) {
+        this.router.navigate(['/sessions', 'session-selected']);
+      } else {
+        this.router.navigate(['/start', 'start-page']);
+      }
+    } catch (err) {
+      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
+      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
+    }
+
+    try {
+      // Launch Daemon
+      this.daemonService.launchDaemon();
+      // This set websocket
+      this.websocketService.launchDaemonWebSocket();
+    } catch (err) {
+      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
+      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
     }
   }
 

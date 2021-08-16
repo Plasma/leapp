@@ -19,6 +19,7 @@ export class WebsocketService {
   private mfaSemaphore;
   private webSocket: any;
   private connectionRetries = 5;
+  private timeoutReconnect = 5000;
 
   constructor(
     private daemonService: DaemonService,
@@ -35,16 +36,10 @@ export class WebsocketService {
 
       this.webSocket.onerror = (_) => {
         this.connectionRetries--;
-        this.workspaceService.getPersistedSessions().then(sessions => {
-          this.workspaceService.sessions = sessions;
-        });
-        this.launchDaemonWebSocket();
+        this.reconnect();
       };
       this.webSocket.onclose = (_) => {
-        this.workspaceService.getPersistedSessions().then(sessions => {
-          this.workspaceService.sessions = sessions;
-        });
-        this.launchDaemonWebSocket();
+        this.reconnect();
       };
 
       this.webSocket.onmessage = async (evt) => {
@@ -89,5 +84,16 @@ export class WebsocketService {
         this.mfaSemaphore = false;
       }
     });
+  }
+
+  private reconnect() {
+    const timeout = setTimeout(() => {
+      clearTimeout(timeout);
+
+      this.workspaceService.getPersistedSessions().then(sessions => {
+        this.workspaceService.sessions = sessions;
+      });
+      this.launchDaemonWebSocket();
+    }, this.timeoutReconnect);
   }
 }

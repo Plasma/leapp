@@ -1,4 +1,9 @@
 <div class="dragger"></div>
 <div class="mask"></div>
+<ng-container *ngIf="globalError !== ''">
+  <div class="text-error error">
+    {{globalError}}
+  </div>
+</ng-container>
 <app-tray-menu></app-tray-menu>
 <router-outlet></router-outlet>
