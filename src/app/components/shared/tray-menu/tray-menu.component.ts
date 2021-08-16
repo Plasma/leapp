@@ -182,7 +182,7 @@ export class TrayMenuComponent implements OnInit, OnDestroy {
       // Clean the config file
       this.appService.cleanCredentialFile();
     } catch (err) {
-      this.appService.logger('No sessions to stop, skipping...', LoggerLevel.error, this, err.stack);
+      this.appService.logger('No sessions to stop, skipping...', LoggerLevel.info, this, err.stack);
     }
 
     // Finally quit

@@ -30,6 +30,10 @@ export class WebsocketService {
     this.mfaSemaphore = false;
   }
 
+  isWebsocket() {
+    return this.webSocket !== null && this.webSocket !== undefined;
+  }
+
   launchDaemonWebSocket() {
     if(this.connectionRetries > 0) {
       this.webSocket = new WebSocket(`ws://localhost:${apiPort}${apiRoot}${DaemonUrls.openWebsocketConnection}`);
@@ -58,8 +62,12 @@ export class WebsocketService {
       };
     } else {
       this.webSocket = null;
-      throw new LeappBaseError('Websocket Connection Failer Error', this, LoggerLevel.warn, 'Can\'t connect with Daemon Websocket, please check Daemon is active');
+      throw new LeappBaseError('Websocket Connection Failer Error', this, LoggerLevel.error, 'Can\'t connect with Daemon Websocket, please check Daemon is active');
     }
+  }
+
+  resetRetries() {
+    this.connectionRetries = 5;
   }
 
   private async manageMfaTokenRequest(data) {
@@ -89,11 +97,9 @@ export class WebsocketService {
   private reconnect() {
     const timeout = setTimeout(() => {
       clearTimeout(timeout);
-
-      this.workspaceService.getPersistedSessions().then(sessions => {
-        this.workspaceService.sessions = sessions;
-      });
       this.launchDaemonWebSocket();
     }, this.timeoutReconnect);
   }
+
+
 }

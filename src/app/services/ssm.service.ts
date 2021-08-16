@@ -74,7 +74,7 @@ export class SsmService {
     };
 
     this.exec.openTerminal(`aws ssm start-session --region ${region} --target ${hypen}${instanceId}${hypen}`, env).then(() => {}, err => {
-      throw new LeappBaseError('Start SSM error', this, LoggerLevel.error, err.message);
+      throw new LeappBaseError('Start SSM error', this, LoggerLevel.warn, err.message);
     });
   }
 

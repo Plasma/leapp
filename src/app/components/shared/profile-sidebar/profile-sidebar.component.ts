@@ -5,6 +5,7 @@ import {HttpClient} from '@angular/common/http';
 import {ExecuteService} from '../../../services/execute.service';
 import {ProxyService} from '../../../services/proxy.service';
 import {WorkspaceService} from '../../../services/workspace.service';
+import {WebsocketService} from "../../../daemon/services/websocket.service";
 
 @Component({
   selector: 'app-profile-sidebar',
@@ -23,6 +24,7 @@ export class ProfileSidebarComponent implements OnInit {
     private executeService: ExecuteService,
     private proxyService: ProxyService,
     private workspaceService: WorkspaceService,
+    private websocketService: WebsocketService,
     private renderer: Renderer2
   ) {}
 
@@ -67,5 +69,12 @@ export class ProfileSidebarComponent implements OnInit {
   goToIdentityProvider() {
     this.closeProfile();
     this.router.navigate(['/', 'aws-sso']);
+  }
+
+  syncDaemon() {
+    if(!this.websocketService.isWebsocket()) {
+      this.websocketService.resetRetries();
+      this.websocketService.launchDaemonWebSocket();
+    }
   }
 }

@@ -305,11 +305,14 @@ export class AppService extends NativeService {
    * @param title - [optional]
    */
   toast(message: string, type: ToastLevel | LoggerLevel, title?: string): void {
+    this.toastr.toastrConfig.timeOut = 5000;
+    this.toastr.toastrConfig.preventDuplicates = true;
+
     switch (type) {
       case ToastLevel.success: this.toastr.success(message, title); break;
       case ToastLevel.info || LoggerLevel.info: this.toastr.info(message, title); break;
       case ToastLevel.warn || LoggerLevel.warn: this.toastr.warning(message, title); break;
-      case ToastLevel.error || LoggerLevel.error: this.toastr.error(message, title ? title : 'Invalid Action!'); break;
+      case ToastLevel.error || LoggerLevel.error: this.toastr.toastrConfig.timeOut = 0; this.toastr.error(message, title ? title : 'Invalid Action!'); break;
       default: this.toastr.error(message, title); break;
     }
   }

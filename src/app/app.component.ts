@@ -15,6 +15,7 @@ import {RetrocompatibilityService} from './services/retrocompatibility.service';
 import {LeappParseError} from './errors/leapp-parse-error';
 import {DaemonService} from './daemon/services/daemon.service';
 import {WebsocketService} from './daemon/services/websocket.service';
+import {LeappBaseError} from "./errors/leapp-base-error";
 
 
 @Component({
@@ -89,7 +90,7 @@ export class AppComponent implements OnInit {
       }
     } catch (err) {
       this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
+      throw new LeappBaseError('Daemon Error', this, LoggerLevel.error,'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
     }
 
 
@@ -109,7 +110,7 @@ export class AppComponent implements OnInit {
       }
     } catch (err) {
       this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
+      throw new LeappBaseError('Daemon Error', this, LoggerLevel.error,'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
     }
 
     try {
@@ -135,7 +136,7 @@ export class AppComponent implements OnInit {
       // Clean the config file
       this.app.cleanCredentialFile();
     } catch (err) {
-      this.app.logger('No sessions to stop, skipping...', LoggerLevel.error, this, err.stack);
+      this.app.logger('No sessions to stop, skipping...', LoggerLevel.info, this, err.stack);
     }
 
     // Finally quit
