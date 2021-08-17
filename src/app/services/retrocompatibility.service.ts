@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {AppService} from './app.service';
+import {AppService, LoggerLevel} from './app.service';
 import {environment} from '../../environments/environment';
 import {FileService} from './file.service';
 import {Workspace} from '../models/workspace';
@@ -11,6 +11,12 @@ import {AwsIamUserSession} from '../models/aws-iam-user-session';
 import {AwsSsoRoleSession} from '../models/aws-sso-role-session';
 import {AzureSession} from '../models/azure-session';
 import {WorkspaceService} from './workspace.service';
+import {SessionType} from '../models/session-type';
+import {DaemonService} from '../daemon/services/daemon.service';
+import {DaemonUrls} from '../daemon/routes';
+import {IamUserCreateRequestDto} from '../daemon/dtos/iam-user-create-request-dto';
+import {Session} from '../models/session';
+import {AwsNamedProfileCreateRequestDto} from "../daemon/dtos/aws-named-profile-create-request-dto";
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +27,8 @@ export class RetrocompatibilityService {
     private appService: AppService,
     private fileService: FileService,
     private keychainService: KeychainService,
-    private workspaceService: WorkspaceService
+    private workspaceService: WorkspaceService,
+    private daemonService: DaemonService
   ) { }
 
   isRetroPatchNecessary(): boolean {
@@ -31,6 +38,20 @@ export class RetrocompatibilityService {
       return workspaceParsed.defaultWorkspace === 'default';
     }
     return false;
+  }
+
+  isMigrationPathNecessary() {
+    let sessionsToMigrate = this.workspaceService.sessions.filter(sess => sess.type === SessionType.awsIamUser);
+    let namedProfiles = this.workspaceService.get().profiles;
+
+    if (!sessionsToMigrate) {
+      sessionsToMigrate = [];
+    }
+    if (!namedProfiles) {
+      namedProfiles = [];
+    }
+
+    return sessionsToMigrate.length > 0 || namedProfiles.length > 0;
   }
 
   async adaptOldWorkspaceFile(): Promise<Workspace> {
@@ -59,6 +80,38 @@ export class RetrocompatibilityService {
 
       return workspace;
     }
+  }
+
+  async migrateDataToDaemon() {
+    const sessionsToMigrate = this.workspaceService.sessions.filter(sess => sess.type === SessionType.awsIamUser);
+    const namedProfilesToMigrate = this.workspaceService.get().profiles;
+
+    for(let i = 0; i < namedProfilesToMigrate.length; i++) {
+      await this.migrateNamedProfile(namedProfilesToMigrate[i]);
+    }
+
+    for(let i = 0; i < sessionsToMigrate.length; i++) {
+      await this.migrateAwsIamUserSession(sessionsToMigrate[i]);
+    }
+
+    this.workspaceService.sessions = [...this.workspaceService.sessions.filter(sess => sess.type !== SessionType.awsIamUser)];
+    this.workspaceService.removeAllProfiles();
+    this.appService.logger('migrated all data to daemon.', LoggerLevel.info, this, null);
+  }
+
+  private async migrateAwsIamUserSession(sess: Session) {
+    const awsAccessKeyId = this.keychainService.getSecret(environment.appName, `${sess.sessionId}-iam-user-aws-session-access-key-id`);
+    const awsSecretAccessKey = this.keychainService.getSecret(environment.appName, `${sess.sessionId}-iam-user-aws-session-secret-access-key`);
+
+    const namedProfilesToMigrate = this.workspaceService.get().profiles;
+    namedProfilesToMigrate.forEach(profile => {
+      if (profile.id === (sess as AwsIamUserSession).profileId) {
+        const name = profile.name;
+        this.workspaceService.getProfileId(name).then(newProfileId => {
+          this.daemonService.callDaemon(DaemonUrls.createIamUser, new IamUserCreateRequestDto(sess.sessionName, sess.region, (sess as AwsIamUserSession).mfaDevice, newProfileId, awsAccessKeyId, awsSecretAccessKey), 'POST');
+        });
+      }
+    });
   }
 
   private parseWorkspaceFile(): any {
@@ -207,5 +260,10 @@ export class RetrocompatibilityService {
     );
     azureSession.sessionId = session.id;
     workspace.sessions.push(azureSession);
+  }
+
+
+  private async migrateNamedProfile(namedProfilesToMigrateElement: { id: string; name: string }) {
+    await this.daemonService.callDaemon(DaemonUrls.createAwsNamedProfile, new AwsNamedProfileCreateRequestDto(namedProfilesToMigrateElement.name), 'POST');
   }
 }

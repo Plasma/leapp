@@ -53,7 +53,7 @@ export class ExecuteService extends NativeService {
    * @returns an {Observable<any>} to use for subscribing to success or error event on the command termination:
    *          the default unix standard is used so 0 represent a success code, everything else is an error code
    */
-  public executeAbsolute(command: string, env?: boolean): Promise<string> {
+  public executeAbsolute(command: string, env?: any): Promise<string> {
     return new Promise(
       (resolve, reject) => {
 

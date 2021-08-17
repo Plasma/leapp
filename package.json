@@ -231,6 +231,7 @@
     "sudo-prompt": "~9.2.1",
     "tslib": "~2.2.0",
     "update-electron-app": "~2.0.1",
+    "username": "^6.0.0",
     "uuid": "~8.3.2",
     "v8-compile-cache": "~2.3.0",
     "zlib": "~1.0.5",

@@ -222,6 +222,12 @@ export class WorkspaceService extends NativeService {
     return workspace.sessions.concat(awsIamUserSessions);
   }
 
+  removeAllProfiles() {
+    const workspace = this.get();
+    workspace.profiles = [];
+    this.persist(workspace);
+  }
+
   private persist(workspace: Workspace) {
     const path = this.appService.getOS().homedir() + '/' + environment.lockFileDestination;
     this.fileService.writeFileSync(path, this.fileService.encryptText(serialize(workspace)));

@@ -63,10 +63,26 @@ export class AppComponent implements OnInit {
     // Prevent Dev Tool to show on production mode
     this.app.blockDevToolInProductionMode();
 
+    try {
+      // Launch Daemon
+      await this.daemonService.launchDaemon();
+      // This set websocket
+      await this.websocketService.launchDaemonWebSocket();
+    } catch (err) {
+      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
+      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
+    }
+
     // Before retrieving an actual copy of the workspace we
     // check and in case apply, our retro compatibility service
     if (this.retrocompatibilityService.isRetroPatchNecessary()) {
       await this.retrocompatibilityService.adaptOldWorkspaceFile();
+    }
+
+    // After migrating from old versions of Leapp Client to latest Leapp Client we migrate one step at a time
+    // the sessions that we want to manage from the daemon itself
+    if (this.retrocompatibilityService.isMigrationPathNecessary()) {
+      await this.retrocompatibilityService.migrateDataToDaemon();
     }
 
     let workspace;
@@ -113,15 +129,7 @@ export class AppComponent implements OnInit {
       throw new LeappBaseError('Daemon Error', this, LoggerLevel.error,'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
     }
 
-    try {
-      // Launch Daemon
-      this.daemonService.launchDaemon();
-      // This set websocket
-      this.websocketService.launchDaemonWebSocket();
-    } catch (err) {
-      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
-    }
+
   }
 
   /**
