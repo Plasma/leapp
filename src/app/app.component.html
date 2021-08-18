@@ -1,9 +1,24 @@
 <div class="dragger"></div>
 <div class="mask"></div>
-<ng-container *ngIf="globalError !== ''">
-  <div class="text-error error">
-    {{globalError}}
+
+<ng-container *ngIf="daemonInstallingState === 1">
+  <div class="text-info info">
+    <span><i class="fa fa-spin fa-sync"></i>&nbsp;</span>
+    <span>Installing Daemon...</span>
   </div>
 </ng-container>
+<ng-container *ngIf="daemonInstallingState === 2">
+  <div class="text-info info">
+    <span><i class="fa fa-spin fa-sync"></i>&nbsp;</span>
+    <span>Starting Daemon...</span>
+  </div>
+</ng-container>
+<ng-container *ngIf="daemonInstallingState === 3">
+  <div class="text-error error">
+    {{daemonInstallingState}}
+  </div>
+</ng-container>
+
+
 <app-tray-menu></app-tray-menu>
 <router-outlet></router-outlet>

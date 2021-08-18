@@ -17,45 +17,42 @@ import {EmptyDto} from '../dtos/empty-dto';
 })
 export class DaemonService extends NativeService {
 
+  macInstaller = '/leapp-daemon-macos-amd64';
+  windowInstaller = '/leapp-daemon-windows-amd64.exe';
+  linuxInstaller = '/leapp-daemon-linux-amd64';
+  user = 'root';
+
   constructor(
     private httpClient: HttpClient,
     private fileService: FileService,
     private executeService: ExecuteService) {
     super();
+
+    this.user = this.os.userInfo().username;
   }
 
-  async launchDaemon() {
-
+  async isDaemonActive(): Promise<boolean> {
     try {
       await this.callDaemon(DaemonUrls.listAwsNamedProfiles, new EmptyDto(), 'GET');
-    } catch(_) {
-      // Calling leapp-daemon
-      let daemonPath = path.join(this.process.resourcesPath, 'extraResources').substring(1);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
 
-      if (!environment.production) {
-        daemonPath = `${__dirname}/src/assets/extraResources`.replace('dist/leapp-client/', '');
-      }
+  async installDaemon() {
+    const daemonFile = this.daemonPath();
+    if (this.fileService.exists(daemonFile)) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      await this.executeService.executeAbsolute(`sudo '${daemonFile}' -service install`, { LEAPP_USER: this.user});
+    }
+  }
 
-      let daemonFile = daemonPath + '/leapp-daemon-macos-amd64';
-      if (this.detectOs() === Constants.windows) {
-        daemonFile = daemonPath + '/leapp-daemon-windows-amd64.exe';
-      } else if(this.detectOs() === Constants.linux) {
-        daemonFile = daemonPath + '/leapp-daemon-linux-amd64';
-      }
-
-
-      if (this.fileService.exists(daemonFile)) {
-          const user = this.os.userInfo().username;
-          console.log(user);
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          let result = await this.executeService.executeAbsolute(`sudo '${daemonFile}' -service install`, { LEAPP_USER: user});
-          console.log(result);
-
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          result = await this.executeService.executeAbsolute(`sudo '${daemonFile}' -service start`, { LEAPP_USER: user});
-          console.log(result);
-      }
-
+  async startDaemon() {
+    const daemonFile = this.daemonPath();
+    if(this.fileService.exists(daemonFile)) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      await this.executeService.executeAbsolute(`sudo '${daemonFile}' -service start`, { LEAPP_USER: this.user});
     }
   }
 
@@ -65,6 +62,23 @@ export class DaemonService extends NativeService {
     return this.httpClient.request(httpVerb, daemonCommandUrl, {body: daemonDto.requestBody(), responseType:'json'}).toPromise().catch((err) => {
       throw new LeappBaseError('Daemon Error', this, LoggerLevel.warn, err.error.error);
     });
+  }
+
+  private daemonPath() {
+    // Calling leapp-daemon
+    let daemonPath = path.join(this.process.resourcesPath, 'extraResources').substring(1);
+
+    if (!environment.production) {
+      daemonPath = `${__dirname}/src/assets/extraResources`.replace('dist/leapp-client/', '');
+    }
+
+    let daemonFile = daemonPath + this.macInstaller;
+    if (this.detectOs() === Constants.windows) {
+      daemonFile = daemonPath + this.windowInstaller;
+    } else if (this.detectOs() === Constants.linux) {
+      daemonFile = daemonPath + this.linuxInstaller;
+    }
+    return daemonFile;
   }
 
   private detectOs() {

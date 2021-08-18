@@ -14,9 +14,6 @@ import compareVersions from 'compare-versions';
 import {RetrocompatibilityService} from './services/retrocompatibility.service';
 import {LeappParseError} from './errors/leapp-parse-error';
 import {DaemonService} from './daemon/services/daemon.service';
-import {WebsocketService} from './daemon/services/websocket.service';
-import {LeappBaseError} from "./errors/leapp-base-error";
-
 
 @Component({
   selector: 'app-root',
@@ -25,7 +22,8 @@ import {LeappBaseError} from "./errors/leapp-base-error";
 })
 export class AppComponent implements OnInit {
 
-  globalError = '';
+  daemonInstallingState = 0;
+  daemonErrorMessage = '';
 
   /* Main app file: launches the Angular framework inside Electron app */
   constructor(
@@ -38,11 +36,101 @@ export class AppComponent implements OnInit {
     private router: Router,
     private timerService: TimerService,
     private updaterService: UpdaterService,
-    private daemonService: DaemonService,
-    private websocketService: WebsocketService
+    private daemonService: DaemonService
   ) {}
 
   async ngOnInit() {
+    // 1. Angular App Boostrap
+    this.angularBootstrap();
+
+    // 2. Install and launch daemon
+    await this.installAndLaunchDaemon();
+
+    if(this.daemonInstallingState === 4) {
+      // 3. Once daemon is verified as installed and working, start applying all the retrocompatibility and migration patches
+      await this.applyRetrocompatibilityAndMigrationPatches();
+
+      // 4. Change all sessions to stopped status in order to start with all inactive
+      await this.changeAllSessionsStatusToStop();
+
+      // 5. Start Global Timer (1s)
+      this.timerService.start(this.rotationService.rotate.bind(this.rotationService));
+
+      // 6. Launch Auto Updater Routines
+      this.manageAutoUpdate();
+
+      // 7. Navigate to the correct Angular page
+      await this.navigateToNextPage();
+    }
+  }
+
+  private async installAndLaunchDaemon() {
+    try {
+      // 1. Install Daemon UI
+      this.daemonInstallingState = 1;
+      // Launch Daemon
+      await this.daemonService.installDaemon();
+    } catch (err) {
+      console.error(err);
+      this.daemonInstallingState = 3;
+      this.daemonErrorMessage = 'Daemon failed to install. Please check if you can run install manually then restart Leapp.';
+      return;
+    }
+
+    try {
+      // 2. Start Daemon UI
+      this.daemonInstallingState = 2;
+      // Start Daemon
+      await this.daemonService.startDaemon();
+    } catch (err) {
+      this.daemonInstallingState = 3;
+      this.daemonErrorMessage = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
+      return;
+    }
+
+    // 3. Run normal app
+    this.daemonInstallingState = 4;
+  }
+
+  private async navigateToNextPage() {
+    // Go to initial page if no sessions are already created or
+    // go to the list page if is your second visit
+    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
+      this.router.navigate(['/sessions', 'session-selected']);
+    } else {
+      this.router.navigate(['/start', 'start-page']);
+    }
+  }
+
+  private async changeAllSessionsStatusToStop() {
+    // Check the existence of a pre-Leapp credential file and make a backup
+    const workspace = this.workspaceService.get();
+    this.showCredentialBackupMessageIfNeeded(workspace);
+
+    // All sessions start stopped when app is launched
+    if ((await this.workspaceService.getPersistedSessions()).length > 0) {
+      (await this.workspaceService.getPersistedSessions()).forEach(sess => {
+        const concreteSessionService = this.sessionProviderService.getService(sess.type);
+        concreteSessionService.stop(sess.sessionId);
+      });
+    }
+  }
+
+  private async applyRetrocompatibilityAndMigrationPatches() {
+    // Before retrieving an actual copy of the workspace we
+    // check and in case apply, our retro compatibility service
+    if (this.retrocompatibilityService.isRetroPatchNecessary()) {
+      await this.retrocompatibilityService.adaptOldWorkspaceFile();
+    }
+
+    // After migrating from old versions of Leapp Client to latest Leapp Client we migrate one step at a time
+    // the sessions that we want to manage from the daemon itself
+    if (this.retrocompatibilityService.isMigrationPathNecessary()) {
+      await this.retrocompatibilityService.migrateDataToDaemon();
+    }
+  }
+
+  private angularBootstrap() {
     // We get the right moment to set an hook to app close
     const ipc = this.app.getIpcRenderer();
     ipc.on('app-close', () => {
@@ -56,80 +144,14 @@ export class AppComponent implements OnInit {
     if (environment.production) {
       // Clear both info and warn message in production
       // mode without removing them from code actually
-      console.warn = () => {};
-      console.log = () => {};
+      console.warn = () => {
+      };
+      console.log = () => {
+      };
     }
 
     // Prevent Dev Tool to show on production mode
     this.app.blockDevToolInProductionMode();
-
-    try {
-      // Launch Daemon
-      await this.daemonService.launchDaemon();
-      // This set websocket
-      await this.websocketService.launchDaemonWebSocket();
-    } catch (err) {
-      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappParseError(this, 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
-    }
-
-    // Before retrieving an actual copy of the workspace we
-    // check and in case apply, our retro compatibility service
-    if (this.retrocompatibilityService.isRetroPatchNecessary()) {
-      await this.retrocompatibilityService.adaptOldWorkspaceFile();
-    }
-
-    // After migrating from old versions of Leapp Client to latest Leapp Client we migrate one step at a time
-    // the sessions that we want to manage from the daemon itself
-    if (this.retrocompatibilityService.isMigrationPathNecessary()) {
-      await this.retrocompatibilityService.migrateDataToDaemon();
-    }
-
-    let workspace;
-    try {
-      workspace = this.workspaceService.get();
-    } catch {
-      this.globalError = 'We had trouble parsing your Leapp-lock.json file. It is either corrupt, obsolete, or with an error.';
-      throw new LeappParseError(this, 'We had trouble parsing your Leapp-lock.json file. It is either corrupt, obsolete, or with an error.');
-    }
-
-    // Check the existence of a pre-Leapp credential file and make a backup
-    this.showCredentialBackupMessageIfNeeded(workspace);
-
-    // All sessions start stopped when app is launched
-    try {
-      if ((await this.workspaceService.getPersistedSessions()).length > 0) {
-        (await this.workspaceService.getPersistedSessions()).forEach(sess => {
-          const concreteSessionService = this.sessionProviderService.getService(sess.type);
-          concreteSessionService.stop(sess.sessionId);
-        });
-      }
-    } catch (err) {
-      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappBaseError('Daemon Error', this, LoggerLevel.error,'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
-    }
-
-
-    // Start Global Timer (1s)
-    this.timerService.start(this.rotationService.rotate.bind(this.rotationService));
-
-    // Launch Auto Updater Routines
-    this.manageAutoUpdate();
-
-    // Go to initial page if no sessions are already created or
-    // go to the list page if is your second visit
-    try {
-      if ((await this.workspaceService.getPersistedSessions()).length > 0) {
-        this.router.navigate(['/sessions', 'session-selected']);
-      } else {
-        this.router.navigate(['/start', 'start-page']);
-      }
-    } catch (err) {
-      this.globalError = 'Daemon communication is off. Please check that Daemon service is running then restart Leapp.';
-      throw new LeappBaseError('Daemon Error', this, LoggerLevel.error,'Daemon communication is off. Please check that Daemon service is running then restart Leapp.');
-    }
-
-
   }
 
   /**
