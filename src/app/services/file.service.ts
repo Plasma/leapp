@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {NativeService} from './native-service';
 import {Observable, Subscription} from 'rxjs';
+import * as CryptoJS from 'crypto-js';
 
 @Injectable({
   providedIn: 'root'
@@ -232,33 +233,13 @@ export class FileService extends NativeService {
    * Encrypt Text
    */
   encryptText(text: string): string {
-    const iv = this.crypto.randomBytes(16);
-    const key = this.machineId.replaceAll('-', '').toUpperCase();
-    const cipher = this.crypto.createCipheriv('aes-256-cbc', key, iv);
-    let cipherText;
-    try {
-      cipherText = cipher.update(text, 'utf8', 'hex');
-      cipherText += cipher.final('hex');
-      cipherText = iv.toString('hex') + cipherText;
-    } catch (e) {
-      cipherText = null;
-    }
-    return Buffer.from(cipherText, 'hex').toString('base64');
+    return CryptoJS.AES.encrypt(text.trim(), this.machineId).toString();
   }
 
   /**
    * Decrypt Text
    */
   decryptText(text: string): string {
-    const contents = Buffer.from(Buffer.from(text, 'base64').toString('hex'), 'hex');
-    const key = this.machineId.replaceAll('-', '').toUpperCase();
-    const iv = contents.slice(0, 16);
-    const textBytes = contents.slice(16);
-    const decipher = this.crypto.createDecipheriv('aes-256-cbc', key, iv);
-
-    let decrypted = decipher.update(textBytes, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
+    return CryptoJS.AES.decrypt(text.trim(), this.machineId).toString(CryptoJS.enc.Utf8);
   }
 }

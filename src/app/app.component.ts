@@ -12,7 +12,6 @@ import {SessionFactoryService} from './services/session-factory.service';
 import {UpdaterService} from './services/updater.service';
 import compareVersions from 'compare-versions';
 import {RetrocompatibilityService} from './services/retrocompatibility.service';
-import {LeappParseError} from './errors/leapp-parse-error';
 import {DaemonService} from './daemon/services/daemon.service';
 
 @Component({
@@ -65,16 +64,22 @@ export class AppComponent implements OnInit {
   }
 
   private async installAndLaunchDaemon() {
+    if((await this.daemonService.isDaemonActive())) {
+      this.daemonInstallingState = 4;
+      return;
+    }
+
     try {
       // 1. Install Daemon UI
       this.daemonInstallingState = 1;
       // Launch Daemon
       await this.daemonService.installDaemon();
     } catch (err) {
-      console.error(err);
-      this.daemonInstallingState = 3;
-      this.daemonErrorMessage = 'Daemon failed to install. Please check if you can run install manually then restart Leapp.';
-      return;
+      if(err && err.error.message.indexOf('already exists') === -1) {
+        this.daemonInstallingState = 3;
+        this.daemonErrorMessage = 'Daemon failed to install. Please check if you can run install manually then restart Leapp.';
+        return;
+      }
     }
 
     try {

@@ -31,6 +31,10 @@ export class RetrocompatibilityService {
     private daemonService: DaemonService
   ) { }
 
+  static adaptIdpUrls(oldWorkspace: any, workspace: Workspace) {
+    workspace.idpUrls = oldWorkspace.workspaces[0].idpUrl;
+  }
+
   isRetroPatchNecessary(): boolean {
     if (this.fileService.exists(this.appService.getOS().homedir() + '/' + environment.lockFileDestination)) {
       const workspaceParsed = this.parseWorkspaceFile();
@@ -67,7 +71,7 @@ export class RetrocompatibilityService {
       this.persists(workspace);
     } else {
       // Adapt data structure
-      this.adaptIdpUrls(oldWorkspace, workspace);
+      RetrocompatibilityService.adaptIdpUrls(oldWorkspace, workspace);
       this.adaptProxyConfig(oldWorkspace, workspace);
       this.adaptGeneralProperties(oldWorkspace, workspace);
       await this.adaptAwsSsoConfig(oldWorkspace, workspace);
@@ -84,6 +88,7 @@ export class RetrocompatibilityService {
 
   async migrateDataToDaemon() {
     const sessionsToMigrate = this.workspaceService.sessions.filter(sess => sess.type === SessionType.awsIamUser);
+    const otherSessions = this.workspaceService.sessions.filter(sess => sess.type !== SessionType.awsIamUser);
     const namedProfilesToMigrate = this.workspaceService.get().profiles;
 
     for(let i = 0; i < namedProfilesToMigrate.length; i++) {
@@ -92,6 +97,10 @@ export class RetrocompatibilityService {
 
     for(let i = 0; i < sessionsToMigrate.length; i++) {
       await this.migrateAwsIamUserSession(sessionsToMigrate[i]);
+    }
+
+    for(let i = 0; i < otherSessions.length; i++) {
+      await this.updateNamedProfiles(otherSessions[i]);
     }
 
     this.workspaceService.sessions = [...this.workspaceService.sessions.filter(sess => sess.type !== SessionType.awsIamUser)];
@@ -145,9 +154,7 @@ export class RetrocompatibilityService {
     }
   }
 
-  private adaptIdpUrls(oldWorkspace: any, workspace: Workspace) {
-    workspace.idpUrls = oldWorkspace.workspaces[0].idpUrl;
-  }
+
 
   private async adaptAwsSsoConfig(oldWorkspace: any, workspace: Workspace): Promise<void> {
     // check if we have at least one SSO session
@@ -264,6 +271,21 @@ export class RetrocompatibilityService {
 
 
   private async migrateNamedProfile(namedProfilesToMigrateElement: { id: string; name: string }) {
-    await this.daemonService.callDaemon(DaemonUrls.createAwsNamedProfile, new AwsNamedProfileCreateRequestDto(namedProfilesToMigrateElement.name), 'POST');
+    try {
+      await this.daemonService.callDaemon(DaemonUrls.createAwsNamedProfile, new AwsNamedProfileCreateRequestDto(namedProfilesToMigrateElement.name), 'POST');
+    } catch (err) {}
+  }
+
+  private async updateNamedProfiles(session: Session) {
+    const namedProfilesToMigrate = this.workspaceService.get().profiles;
+    namedProfilesToMigrate.forEach(profile => {
+      if (profile.id === (session as AwsIamUserSession).profileId) {
+        const name = profile.name;
+        this.workspaceService.getProfileId(name).then(newProfileId => {
+          // Update profile Id
+          (session as AwsIamUserSession).profileId = newProfileId;
+        });
+      }
+    });
   }
 }
