@@ -87,9 +87,11 @@ export class RetrocompatibilityService {
   }
 
   async migrateDataToDaemon() {
-    const sessionsToMigrate = this.workspaceService.sessions.filter(sess => sess.type === SessionType.awsIamUser);
-    const otherSessions = this.workspaceService.sessions.filter(sess => sess.type !== SessionType.awsIamUser);
-    const namedProfilesToMigrate = this.workspaceService.get().profiles;
+    const workspace = this.workspaceService.get();
+
+    const sessionsToMigrate = workspace.sessions.filter(sess => sess.type === SessionType.awsIamUser);
+    const otherSessions = workspace.sessions.filter(sess => sess.type !== SessionType.awsIamUser);
+    const namedProfilesToMigrate = workspace.profiles;
 
     for(let i = 0; i < namedProfilesToMigrate.length; i++) {
       await this.migrateNamedProfile(namedProfilesToMigrate[i]);
@@ -103,8 +105,12 @@ export class RetrocompatibilityService {
       await this.updateNamedProfiles(otherSessions[i]);
     }
 
-    this.workspaceService.sessions = [...this.workspaceService.sessions.filter(sess => sess.type !== SessionType.awsIamUser)];
-    this.workspaceService.removeAllProfiles();
+    workspace.sessions = otherSessions;
+    workspace.profiles = [];
+    this.persists(workspace);
+
+    this.workspaceService.sessions = [...await this.workspaceService.getPersistedSessions()];
+
     this.appService.logger('migrated all data to daemon.', LoggerLevel.info, this, null);
   }
 
@@ -270,7 +276,7 @@ export class RetrocompatibilityService {
   }
 
 
-  private async migrateNamedProfile(namedProfilesToMigrateElement: { id: string; name: string }) {
+  private async  migrateNamedProfile(namedProfilesToMigrateElement: { id: string; name: string }) {
     try {
       await this.daemonService.callDaemon(DaemonUrls.createAwsNamedProfile, new AwsNamedProfileCreateRequestDto(namedProfilesToMigrateElement.name), 'POST');
     } catch (err) {}

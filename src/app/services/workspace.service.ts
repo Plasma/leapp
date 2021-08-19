@@ -7,14 +7,14 @@ import {environment} from '../../environments/environment';
 import {deserialize, serialize} from 'class-transformer';
 import {NativeService} from './native-service';
 import {BehaviorSubject, Observable} from 'rxjs';
-import {SessionType} from "../models/session-type";
-import {DaemonService} from "../daemon/services/daemon.service";
-import {DaemonUrls} from "../daemon/routes";
-import {EmptyDto} from "../daemon/dtos/empty-dto";
-import {DaemonDataMapperService} from "../daemon/services/daemon-data-mapper.service";
-import {AwsNamedProfileCreateRequestDto} from "../daemon/dtos/aws-named-profile-create-request-dto";
-import {AwsNamedProfileEditRequestDto} from "../daemon/dtos/aws-named-profile-edit-request-dto";
-import {AwsNamedProfileDeleteRequestDto} from "../daemon/dtos/aws-named-profile-delete-request-dto";
+import {SessionType} from '../models/session-type';
+import {DaemonService} from '../daemon/services/daemon.service';
+import {DaemonUrls} from '../daemon/routes';
+import {EmptyDto} from '../daemon/dtos/empty-dto';
+import {DaemonDataMapperService} from '../daemon/services/daemon-data-mapper.service';
+import {AwsNamedProfileCreateRequestDto} from '../daemon/dtos/aws-named-profile-create-request-dto';
+import {AwsNamedProfileEditRequestDto} from '../daemon/dtos/aws-named-profile-edit-request-dto';
+import {AwsNamedProfileDeleteRequestDto} from '../daemon/dtos/aws-named-profile-delete-request-dto';
 
 @Injectable({
   providedIn: 'root'

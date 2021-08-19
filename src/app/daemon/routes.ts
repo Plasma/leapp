@@ -1,6 +1,6 @@
 export const apiPort = '8080';
 
-export const apiRoot = '/api/v1';
+export const apiRoot = '';
 
 export enum DaemonUrls {
   openWebsocketConnection = `/websocket/register-client`, // GET
