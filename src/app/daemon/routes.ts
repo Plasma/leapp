@@ -18,4 +18,7 @@ export enum DaemonUrls {
   deleteIamUser = `/aws/iam-user-sessions/:id`, // DELETE
   startIamUserSession = `/aws/iam-user-sessions/:id/start`, // POST
   stopIamUserSession = `/aws/iam-user-sessions/:id/stop`, // POST
+
+  getRegions = `/aws/regions`, // GET
+  editAwsRegion = `/aws/sessions/:id/region` // POST
 }

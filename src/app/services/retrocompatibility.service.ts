@@ -16,7 +16,7 @@ import {DaemonService} from '../daemon/services/daemon.service';
 import {DaemonUrls} from '../daemon/routes';
 import {IamUserCreateRequestDto} from '../daemon/dtos/iam-user-create-request-dto';
 import {Session} from '../models/session';
-import {AwsNamedProfileCreateRequestDto} from "../daemon/dtos/aws-named-profile-create-request-dto";
+import {AwsNamedProfileCreateRequestDto} from '../daemon/dtos/aws-named-profile-create-request-dto';
 
 @Injectable({
   providedIn: 'root'

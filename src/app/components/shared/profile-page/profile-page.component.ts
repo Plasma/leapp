@@ -22,8 +22,11 @@ import {AwsSessionService} from '../../../services/session/aws/aws-session.servi
 export class ProfilePageComponent implements OnInit {
 
   activeTab = 1;
+  profiles;
 
-  awsProfileValue: { id: string; name: string };
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  awsProfileValue: { Id: string; Name: string };
+
   idpUrlValue;
   editingIdpUrl: boolean;
   editingAwsProfile: boolean;
@@ -38,7 +41,7 @@ export class ProfilePageComponent implements OnInit {
   workspace: Workspace;
 
   locations: { location: string }[];
-  regions: { region: string }[];
+  regions;
   selectedLocation: string;
   selectedRegion: string;
 
@@ -63,12 +66,13 @@ export class ProfilePageComponent implements OnInit {
     private fileService: FileService,
     private sessionProviderService: SessionFactoryService,
     private awsSessionService: AwsSessionService,
-    private workspaceService: WorkspaceService,
+    public workspaceService: WorkspaceService,
     private router: Router
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     this.workspace = this.workspaceService.get();
+
     this.idpUrlValue = '';
     this.proxyProtocol = this.workspace.proxyConfiguration.proxyProtocol;
     this.proxyUrl = this.workspace.proxyConfiguration.proxyUrl;
@@ -90,10 +94,15 @@ export class ProfilePageComponent implements OnInit {
       this.showProxyAuthentication = true;
     }
 
-    this.regions = this.appService.getRegions();
+    this.regions = await this.workspaceService.getAwsRegions();
+    this.regions = this.regions.map(r => ({ region: r }));
+
     this.locations = this.appService.getLocations();
+
     this.selectedRegion   = this.workspace.defaultRegion || environment.defaultRegion;
     this.selectedLocation = this.workspace.defaultLocation || environment.defaultLocation;
+
+    this.profiles = await this.workspaceService.getProfiles();
 
     this.appService.validateAllFormFields(this.form);
   }
@@ -211,12 +220,12 @@ export class ProfilePageComponent implements OnInit {
 
   async manageAwsProfile(id: string | number) {
 
-    const profileIndex = this.workspaceService.get().profiles.findIndex(p => p.id === id.toString());
+    const profileIndex = this.profiles.findIndex(p => p.Id === id.toString());
     if (this.form.get('awsProfile').value !== '') {
       if (profileIndex === -1) {
-        this.workspaceService.addProfile(this.form.get('awsProfile').value);
+        await this.workspaceService.addProfile(this.form.get('awsProfile').value);
       } else {
-        this.workspaceService.updateProfile(id.toString(), this.form.get('awsProfile').value);
+        await this.workspaceService.updateProfile(id.toString(), this.form.get('awsProfile').value);
 
         for(let i = 0; i < this.workspaceService.sessions.length; i++) {
           const sess = this.workspaceService.sessions[i];
@@ -231,16 +240,23 @@ export class ProfilePageComponent implements OnInit {
         }
       }
     }
+
     this.editingAwsProfile = false;
     this.awsProfileValue = undefined;
     this.form.get('awsProfile').setValue('');
+
     this.workspace = this.workspaceService.get();
+    this.profiles = await this.workspaceService.getProfiles();
   }
 
-  editAwsProfile(id: string) {
-    const profile = this.workspace.profiles.filter(u => u.id === id)[0];
+  async editAwsProfile(id: string) {
+    this.profiles = await this.workspaceService.getProfiles();
+    const profile = this.profiles.find(u => u.Id === id);
+
+    console.log(profile);
+
     this.awsProfileValue = profile;
-    this.form.get('awsProfile').setValue(profile.name);
+    this.form.get('awsProfile').setValue(profile.Name);
     this.editingAwsProfile = true;
   }
 
@@ -258,7 +274,7 @@ export class ProfilePageComponent implements OnInit {
     this.appService.confirmDialog(`Deleting this profile will set default to these sessions: <br><ul>${sessionsNames.join('')}</ul>Do you want to proceed?`, async (res) => {
       if (res !== Constants.confirmClosed) {
         this.appService.logger(`Reverting to default profile with id: ${id}`, LoggerLevel.info, this);
-        this.workspaceService.removeProfile(id);
+        await this.workspaceService.removeProfile(id);
         // Reverting all sessions to default profile
         for(let i = 0; i < sessions.length; i++) {
           const sess = sessions[i];
@@ -279,6 +295,7 @@ export class ProfilePageComponent implements OnInit {
         }
 
         this.workspace = this.workspaceService.get();
+        this.profiles = await this.workspaceService.getProfiles();
       }
     });
   }

@@ -74,6 +74,10 @@ export class WorkspaceService extends NativeService {
     this._sessions.next(sessions);
   }
 
+  refresh() {
+    this._sessions.next(this.sessions);
+  }
+
   create(): void {
     if (!this.fileService.exists(this.appService.getOS().homedir() + '/' + environment.lockFileDestination)) {
       this.fileService.newDir(this.appService.getOS().homedir() + '/.Leapp', { recursive: true});
@@ -115,6 +119,14 @@ export class WorkspaceService extends NativeService {
     this.persist(workspace);
   }
 
+  async getAwsRegions(): Promise<string[]> {
+    return (await this.daemonService.callDaemon(DaemonUrls.getRegions, new EmptyDto(), 'GET')).data;
+  }
+
+  async setAwsRegion(region: string): Promise<void> {
+    return await this.daemonService.callDaemon(DaemonUrls.editAwsRegion, new EmptyDto(), 'PATCH');
+  }
+
   getIdpUrl(idpUrlId: string): string {
     const workspace = this.get();
     const idpUrlFiltered = workspace.idpUrls.find(url => url.id === idpUrlId);
@@ -145,7 +157,8 @@ export class WorkspaceService extends NativeService {
     this.persist(workspace);
   }
 
-  async getProfiles(): Promise<any[]> {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  async getProfiles(): Promise<{ Name: string; Id: string}[]> {
     return (await this.daemonService.callDaemon(DaemonUrls.listAwsNamedProfiles, new EmptyDto(), 'GET')).data;
   }
 
@@ -164,7 +177,7 @@ export class WorkspaceService extends NativeService {
   async getDefaultProfileId(): Promise<string> {
     const profiles = await this.getProfiles();
     const profileFiltered = profiles.find(profile => profile.Name === 'default');
-    return profileFiltered.id;
+    return profileFiltered.Id;
   }
 
   addProfile(name: string): void {
@@ -181,9 +194,9 @@ export class WorkspaceService extends NativeService {
 
   async removeProfile(id: string) {
     const profiles = await this.getProfiles();
-    const profileIndex = profiles.findIndex(p => p.id === id);
+    const profileIndex = profiles.findIndex(p => p.Id === id);
     if(profileIndex > -1) {
-      this.daemonService.callDaemon(DaemonUrls.deleteAwsNamedProfile, new AwsNamedProfileDeleteRequestDto(id), 'DELETE');
+      await this.daemonService.callDaemon(DaemonUrls.deleteAwsNamedProfile, new AwsNamedProfileDeleteRequestDto(id), 'DELETE');
     }
   }
 

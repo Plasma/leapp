@@ -45,6 +45,7 @@ export class SessionComponent implements OnInit {
   ngOnInit() {
     // Set regions for ssm
     this.ssmRegions = this.appService.getRegions();
+    this.workspaceService.sessions$.subscribe(console.log);
   }
 
   /**
